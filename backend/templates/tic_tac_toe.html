@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tic_tac_toe.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="tic-tac-toe-container">
+    <h1>Tic Tac Toe</h1>
+    <div class="game-controls">
+        <div class="player-info">
+            <label for="player-name">Enter Your Name:</label>
+            <input type="text" id="player-name" placeholder="Your name">
+        </div>
+        <div class="algorithm-info">
+            <label for="algorithm-select">Computer Algorithm:</label>
+            <select id="algorithm-select">
+                <option value="minimax">Minimax</option>
+                <option value="alphabeta">Alpha-Beta Pruning</option>
+            </select>
+        </div>
+        <button id="start-game">Start Game</button>
+    </div>
+    <div class="game-board-container">
+        <div id="game-board" class="game-board"></div>
+        <div class="game-info">
+            <div class="status" id="game-status">Enter your name and start the game!</div>
+            <div class="timer" id="game-timer">00:00</div>
+        </div>
+    </div>
+    <div class="game-history">
+        <h2>Game History</h2>
+        <div id="history-list" class="history-list"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tic_tac_toe.js') }}"></script>
+{% endblock %}

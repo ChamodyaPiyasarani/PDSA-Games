@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Tower of Hanoi{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hanoi.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="hanoi-container">
+    <h1>Tower of Hanoi</h1>
+    
+    <div class="game-controls">
+        <div class="player-info">
+            <label for="player-name">Your Name:</label>
+            <input type="text" id="player-name" placeholder="Enter your name">
+        </div>
+        
+        <div class="disk-info">
+            <label>Number of Disks:</label>
+            <span id="disk-count">-</span>
+        </div>
+        
+        <div class="peg-controls">
+            <label>Number of Pegs:</label>
+            <select id="peg-count">
+                <option value="3">3 Pegs</option>
+                <option value="4">4 Pegs</option>
+            </select>
+        </div>
+        
+        <div class="algorithm-controls">
+            <label>Solution Algorithm:</label>
+            <select id="algorithm-select">
+                <option value="recursive">Recursive</option>
+                <option value="iterative">Iterative</option>
+                <option value="frame_stewart">Frame-Stewart (4 Pegs)</option>
+            </select>
+        </div>
+        
+        <button id="start-game" class="btn btn-primary">Start Game</button>
+        <button id="solve-game" class="btn btn-tertiary">Show Solution</button>
+    </div>
+    
+    <div class="game-area">
+        <div class="pegs-container">
+            <div class="peg" id="peg-A" data-peg="A">
+                <div class="peg-rod"></div>
+                <div class="disks" id="disks-A"></div>
+            </div>
+            <div class="peg" id="peg-B" data-peg="B">
+                <div class="peg-rod"></div>
+                <div class="disks" id="disks-B"></div>
+            </div>
+            <div class="peg" id="peg-C" data-peg="C">
+                <div class="peg-rod"></div>
+                <div class="disks" id="disks-C"></div>
+            </div>
+            <div class="peg" id="peg-D" data-peg="D" style="display: none;">
+                <div class="peg-rod"></div>
+                <div class="disks" id="disks-D"></div>
+            </div>
+        </div>
+        
+        <div class="game-info">
+            <div class="status" id="game-status">Ready to play!</div>
+            <div class="move-counter">
+                Moves: <span id="move-count">0</span>
+                (Minimum: <span id="min-moves">31</span>)
+            </div>
+            <div class="controls-info">
+                <h3>How to Play</h3>
+                <ul>
+                    <li>Click on a disk to select it</li>
+                    <li>Click on a peg to move the selected disk</li>
+                    <li>You can only move one disk at a time</li>
+                    <li>You cannot place a larger disk on a smaller one</li>
+                </ul>
+            </div>
+            <div class="algorithm-performance">
+                <h3>Algorithm Performance</h3>
+                <div class="algorithm">
+                    <span class="algorithm-name">Recursive</span>
+                    <span class="algorithm-time" id="recursive-time">-</span>
+                </div>
+                <div class="algorithm">
+                    <span class="algorithm-name">Iterative</span>
+                    <span class="algorithm-time" id="iterative-time">-</span>
+                </div>
+                <div class="algorithm">
+                    <span class="algorithm-name">4 Pegs</span>
+                    <span class="algorithm-time" id="fourpeg-time">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="move-history">
+        <h2>Move Sequence</h2>
+        <div class="moves-list" id="moves-list"></div>
+        <button id="submit-solution" class="btn btn-primary" disabled>Submit Solution</button>
+    </div>
+    
+    <div class="game-history">
+        <h2>Recent Games</h2>
+        <div class="history-list" id="history-list"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/hanoi.js') }}"></script>
+{% endblock %}

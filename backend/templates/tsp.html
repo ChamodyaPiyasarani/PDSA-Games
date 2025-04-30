@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Traveling Salesman Problem{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tsp.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="tsp-container">
+    <h1>Traveling Salesman Problem</h1>
+    
+    <div class="game-controls">
+        <div class="player-info">
+            <label for="player-name">Your Name:</label>
+            <input type="text" id="player-name" placeholder="Enter your name">
+        </div>
+        
+        <button id="start-game" class="btn btn-primary">Start New Game</button>
+    </div>
+    
+    <div class="game-area">
+        <div class="city-map" id="city-map">
+            <!-- Cities will be dynamically added here -->
+        </div>
+        
+        <div class="game-info">
+            <div class="status" id="game-status">Select cities to visit</div>
+            <div class="distance-info">
+                <h3>Route Information</h3>
+                <div class="info-row">
+                    <span>Home City:</span>
+                    <span id="home-city">-</span>
+                </div>
+                <div class="info-row">
+                    <span>Selected Cities:</span>
+                    <span id="selected-cities">-</span>
+                </div>
+                <div class="info-row">
+                    <span>Your Route:</span>
+                    <span id="player-route" class="route-display">-</span>
+                </div>
+                <div class="info-row">
+                    <span>Your Distance:</span>
+                    <span id="player-distance" class="distance-display">-</span>
+                </div>
+                <div class="info-row">
+                    <span>Optimal Distance:</span>
+                    <span id="optimal-distance" class="distance-display">-</span>
+                </div>
+            </div>
+            
+            <div class="algorithm-selection">
+                <h3>Select Algorithm</h3>
+                <select id="algorithm-select" class="form-select">
+                    <option value="bruteforce">Brute Force</option>
+                    <option value="dynamic">Dynamic Programming</option>
+                    <option value="genetic">Genetic Algorithm</option>
+                </select>
+            </div>
+            
+            <div class="algorithm-performance">
+                <h3>Algorithm Performance</h3>
+                <div class="algorithm">
+                    <span class="algorithm-name">Brute Force</span>
+                    <span class="algorithm-time" id="bruteforce-time">-</span>
+                </div>
+                <div class="algorithm">
+                    <span class="algorithm-name">Dynamic Programming</span>
+                    <span class="algorithm-time" id="dynamic-time">-</span>
+                </div>
+                <div class="algorithm">
+                    <span class="algorithm-name">Genetic Algorithm</span>
+                    <span class="algorithm-time" id="genetic-time">-</span>
+                </div>
+            </div>
+            
+            <button id="submit-route" class="btn btn-secondary" disabled>Submit Route</button>
+            <button id="show-solution" class="btn btn-tertiary" disabled>Show Optimal Solution</button>
+        </div>
+    </div>
+    
+    <div class="game-history">
+        <h2>Recent Games</h2>
+        <div class="history-list" id="history-list">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tsp.js') }}"></script>
+{% endblock %}

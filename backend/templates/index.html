@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Game Suite - Algorithmic Games Collection{% endblock %}
+
+{% block content %}
+<div class="game-menu">
+    <h1>Welcome to Game Suite</h1>
+    <p class="subtitle">Explore our collection of classic algorithmic games and puzzles</p>
+    
+    <div class="game-cards">
+        <a href="{{ url_for('tic_tac_toe') }}" class="game-card">
+            <div class="card-icon">
+                <i class="fas fa-times"></i>
+            </div>
+            <h2>Tic-Tac-Toe</h2>
+            <p>Challenge yourself in this enhanced 5x5 version with intelligent AI opponents using Minimax and Alpha-Beta pruning algorithms.</p>
+        </a>
+        
+        <a href="{{ url_for('traveling_salesman') }}" class="game-card">
+            <div class="card-icon">
+                <i class="fas fa-route"></i>
+            </div>
+            <h2>Traveling Salesman</h2>
+            <p>Solve one of computer science's most famous optimization problems by finding the shortest possible route between cities.</p>
+        </a>
+        
+        <a href="{{ url_for('tower_of_hanoi') }}" class="game-card">
+            <div class="card-icon">
+                <i class="fas fa-layer-group"></i>
+            </div>
+            <h2>Tower of Hanoi</h2>
+            <p>Master this classic puzzle by moving disks between pegs while following simple but challenging rules.</p>
+        </a>
+        
+        <a href="{{ url_for('eight_queens') }}" class="game-card">
+            <div class="card-icon">
+                <i class="fas fa-chess-queen"></i>
+            </div>
+            <h2>Eight Queens</h2>
+            <p>Place eight queens on a chessboard so that no two queens threaten each other in this classic constraint satisfaction puzzle.</p>
+        </a>
+        
+        <a href="{{ url_for('knights_tour') }}" class="game-card">
+            <div class="card-icon">
+                <i class="fas fa-chess-knight"></i>
+            </div>
+            <h2>Knight's Tour</h2>
+            <p>Guide a knight to visit every square exactly once on the chessboard using valid chess moves.</p>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.subtitle {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+}
+
+.card-icon {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+}
+
+.card-icon i {
+    font-size: 2rem;
+    color: white;
+}
+
+.difficulty {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-top: 1rem;
+    background-color: var(--surface-color);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.game-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+}
+
+.game-card p {
+    text-align: center;
+    margin: 1rem 0;
+    line-height: 1.6;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+}
+
+.game-card {
+    opacity: 0;
+}
+</style>
+{% endblock %}

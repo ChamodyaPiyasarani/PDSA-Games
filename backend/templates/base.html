@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Suite - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-gamepad"></i>
+                    <h1>Game Suite</h1>
+                </div>
+                <nav>
+                    <ul>
+                        <li><a href="{{ url_for('index') }}" class="nav-link"><i class="fas fa-home"></i> Home</a></li>
+                        <li><a href="{{ url_for('tic_tac_toe') }}" class="nav-link"><i class="fas fa-times"></i> Tic-Tac-Toe</a></li>
+                        <li><a href="{{ url_for('traveling_salesman') }}" class="nav-link"><i class="fas fa-route"></i> TSP</a></li>
+                        <li><a href="{{ url_for('tower_of_hanoi') }}" class="nav-link"><i class="fas fa-layer-group"></i> Hanoi</a></li>
+                        <li><a href="{{ url_for('eight_queens') }}" class="nav-link"><i class="fas fa-chess-queen"></i> Queens</a></li>
+                        <li><a href="{{ url_for('knights_tour') }}" class="nav-link"><i class="fas fa-chess-knight"></i> Knight</a></li>
+                    </ul>
+                </nav>
+                <button id="theme-toggle" class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="message-box" class="message-box">
+        <div class="message-content">
+            <span class="message-icon"></span>
+            <span class="message-text"></span>
+            <button class="close-message">&times;</button>
+        </div>
+    </div>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 Game Suite. All rights reserved.</p>
+            <div class="social-links">
+                <a href="#" class="social-link"><i class="fab fa-github"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-twitter"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-linkedin"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

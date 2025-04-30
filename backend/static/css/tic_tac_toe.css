@@ -1,0 +1,235 @@
+* {
+    font-family: 'Poppins', sans-serif;
+}
+
+.tic-tac-toe-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.tic-tac-toe-container h1 {
+    text-align: center;
+    color: #3498db;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.game-controls {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.player-info {
+    flex: 1;
+    min-width: 200px;
+}
+
+.player-info label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.player-info input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+.algorithm-info {
+    flex: 1;
+    min-width: 200px;
+}
+
+.algorithm-info label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.algorithm-info select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+    background-color: white;
+    cursor: pointer;
+}
+
+.algorithm-info select:hover {
+    border-color: #3498db;
+}
+
+.algorithm-info select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+#start-game {
+    padding: 0.5rem 1.5rem;
+    background: #2ecc71;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#start-game:hover {
+    background: #27ae60;
+}
+
+.game-board-container {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.game-board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 5px;
+    width: 500px;
+    height: 500px;
+    background: #34495e;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.cell {
+    background: white;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.cell:hover {
+    background: #f1f1f1;
+}
+
+.cell.x {
+    color: #e74c3c;
+}
+
+.cell.o {
+    color: #3498db;
+}
+
+.game-info {
+    flex: 1;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.status {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border-radius: 5px;
+    background: #f8f9fa;
+    text-align: center;
+}
+
+.timer {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.game-history {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.game-history h2 {
+    margin-bottom: 1rem;
+    color: #3498db;
+    font-weight: 600;
+}
+
+.history-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-item .player {
+    font-weight: 500;
+}
+
+.history-item .result {
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.history-item .result.win {
+    background: #d4edda;
+    color: #155724;
+}
+
+.history-item .result.lose {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.history-item .result.draw {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.history-item .date {
+    color: #666;
+    font-size: 0.9em;
+}
+
+@media (max-width: 900px) {
+    .game-board-container {
+        flex-direction: column;
+    }
+    
+    .game-board {
+        width: 100%;
+        aspect-ratio: 1/1;
+    }
+}
