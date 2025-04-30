@@ -44,120 +44,163 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize the game
     function initializeGame() {
-        const name = playerNameInput.value.trim();
-        if (!name) {
-            showMessage('Please enter your name to start the game', 'error');
-            return;
-        }
-        
-        playerName = name;
-        // Clear previous game
-        cityMap.innerHTML = '';
-        selectedCities = [];
-        playerRoute = [];
-        distances = {};
-        optimalRoute = [];
-        optimalDistance = Infinity;
-        
-        // Generate cities (A-J)
-        cities = Array.from({length: 10}, (_, i) => String.fromCharCode(65 + i));
-        
-        // Randomly select home city
-        homeCity = cities[Math.floor(Math.random() * cities.length)];
-        
-        // Generate random distances between cities (50-100 km)
-        for (let i = 0; i < cities.length; i++) {
-            for (let j = i + 1; j < cities.length; j++) {
-                const distance = Math.floor(Math.random() * 51) + 50; // 50-100 km
-                distances[`${cities[i]}-${cities[j]}`] = distance;
-                distances[`${cities[j]}-${cities[i]}`] = distance;
-            }
-        }
-        
-        // Update UI
-        homeCityDisplay.textContent = homeCity;
-        selectedCitiesDisplay.textContent = '-';
-        playerRouteDisplay.textContent = '-';
-        playerDistanceDisplay.textContent = '-';
-        optimalDistanceDisplay.textContent = '-';
-        bruteforceTimeDisplay.textContent = '-';
-        dynamicTimeDisplay.textContent = '-';
-        geneticTimeDisplay.textContent = '-';
-        statusDisplay.textContent = 'Select cities to visit';
-        submitButton.disabled = true;
-        showSolutionButton.disabled = true;
-        
-        // Create city elements with random positions
-        cities.forEach(city => {
-            const cityElement = document.createElement('div');
-            cityElement.className = 'city';
-            cityElement.textContent = city;
-            cityElement.id = `city-${city}`;
-            
-            // Add home city class if it's the home city
-            if (city === homeCity) {
-                cityElement.classList.add('home');
+        try {
+            const name = playerNameInput.value.trim();
+            if (!name) {
+                throw new Error('Please enter your name to start the game');
             }
             
-            // Set random position within the map container
-            const mapRect = cityMap.getBoundingClientRect();
-            const maxX = mapRect.width - 40; // Account for city width
-            const maxY = mapRect.height - 40; // Account for city height
+            if (name.length < 2) {
+                throw new Error('Name must be at least 2 characters long');
+            }
             
-            const x = Math.floor(Math.random() * maxX);
-            const y = Math.floor(Math.random() * maxY);
+            if (name.length > 50) {
+                throw new Error('Name must not exceed 50 characters');
+            }
             
-            cityElement.style.left = `${x}px`;
-            cityElement.style.top = `${y}px`;
+            if (!/^[a-zA-Z0-9\s]+$/.test(name)) {
+                throw new Error('Name can only contain letters, numbers, and spaces');
+            }
             
-            cityElement.addEventListener('click', () => toggleCitySelection(city));
-            cityMap.appendChild(cityElement);
-        });
-        
-        gameActive = true;
-        cityMap.classList.add('active');
-        
-        showMessage('Game started! Select cities to visit', 'success');
-        
-        // Create new game in database
-        createNewGame();
+            playerName = name;
+            // Clear previous game
+            cityMap.innerHTML = '';
+            selectedCities = [];
+            playerRoute = [];
+            distances = {};
+            optimalRoute = [];
+            optimalDistance = Infinity;
+            
+            // Generate cities (A-J)
+            cities = Array.from({length: 10}, (_, i) => String.fromCharCode(65 + i));
+            
+            // Randomly select home city
+            homeCity = cities[Math.floor(Math.random() * cities.length)];
+            
+            // Generate random distances between cities (50-100 km)
+            for (let i = 0; i < cities.length; i++) {
+                for (let j = i + 1; j < cities.length; j++) {
+                    const distance = Math.floor(Math.random() * 51) + 50; // 50-100 km
+                    distances[`${cities[i]}-${cities[j]}`] = distance;
+                    distances[`${cities[j]}-${cities[i]}`] = distance;
+                }
+            }
+            
+            // Update UI
+            homeCityDisplay.textContent = homeCity;
+            selectedCitiesDisplay.textContent = '-';
+            playerRouteDisplay.textContent = '-';
+            playerDistanceDisplay.textContent = '-';
+            optimalDistanceDisplay.textContent = '-';
+            bruteforceTimeDisplay.textContent = '-';
+            dynamicTimeDisplay.textContent = '-';
+            geneticTimeDisplay.textContent = '-';
+            statusDisplay.textContent = 'Select cities to visit';
+            submitButton.disabled = true;
+            showSolutionButton.disabled = true;
+            
+            // Create city elements with random positions
+            cities.forEach(city => {
+                const cityElement = document.createElement('div');
+                cityElement.className = 'city';
+                cityElement.textContent = city;
+                cityElement.id = `city-${city}`;
+                
+                // Add home city class if it's the home city
+                if (city === homeCity) {
+                    cityElement.classList.add('home');
+                    cityElement.style.backgroundColor = '#9b59b6'; // Purple color for home city
+                    cityElement.style.color = 'white';
+                    cityElement.style.border = '2px solid white';
+                    cityElement.style.boxShadow = '0 0 10px rgba(155, 89, 182, 0.5)';
+                }
+                
+                // Set random position within the map container
+                const mapRect = cityMap.getBoundingClientRect();
+                const maxX = mapRect.width - 40; // Account for city width
+                const maxY = mapRect.height - 40; // Account for city height
+                
+                const x = Math.floor(Math.random() * maxX);
+                const y = Math.floor(Math.random() * maxY);
+                
+                cityElement.style.left = `${x}px`;
+                cityElement.style.top = `${y}px`;
+                
+                // Add click event listener with proper event handling
+                cityElement.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    toggleCitySelection(city);
+                });
+                
+                cityMap.appendChild(cityElement);
+            });
+            
+            gameActive = true;
+            cityMap.classList.add('active');
+            
+            showMessage('Game started! Select cities to visit', 'success');
+            
+            // Create new game in database
+            createNewGame();
+        } catch (error) {
+            showMessage(error.message, 'error');
+            console.error('Game initialization error:', error);
+        }
     }
     
     // Toggle city selection
     function toggleCitySelection(city) {
-        if (!gameActive) {
-            showMessage('Please start a new game first', 'error');
-            return;
-        }
-        
-        if (city === homeCity) {
-            showMessage('Cannot select the home city', 'error');
-            return;
-        }
-        
-        const cityElement = document.getElementById(`city-${city}`);
-        const index = selectedCities.indexOf(city);
-        
-        if (index === -1) {
-            selectedCities.push(city);
-            cityElement.classList.add('selected');
-            showMessage(`City ${city} added to your route`, 'success');
-        } else {
-            selectedCities.splice(index, 1);
-            cityElement.classList.remove('selected');
-            showMessage(`City ${city} removed from your route`, 'success');
-        }
-        
-        // Update selected cities display
-        selectedCitiesDisplay.textContent = selectedCities.length > 0 ? selectedCities.join(', ') : '-';
-        
-        // Enable/disable buttons based on selection count
-        if (selectedCities.length >= 1) {
-            submitButton.disabled = false;
-            showSolutionButton.disabled = false;
-        } else {
-            submitButton.disabled = true;
-            showSolutionButton.disabled = true;
+        try {
+            if (!gameActive) {
+                throw new Error('Please start a new game first');
+            }
+            
+            if (!city || typeof city !== 'string') {
+                throw new Error('Invalid city selection');
+            }
+            
+            if (city === homeCity) {
+                throw new Error('Cannot select the home city');
+            }
+            
+            const cityElement = document.getElementById(`city-${city}`);
+            if (!cityElement) {
+                throw new Error('City element not found');
+            }
+            
+            const index = selectedCities.indexOf(city);
+            
+            if (index === -1) {
+                if (selectedCities.length >= 9) {
+                    throw new Error('Maximum of 9 cities can be selected');
+                }
+                selectedCities.push(city);
+                cityElement.classList.add('selected');
+                cityElement.style.backgroundColor = '#4CAF50'; // Green color for selected cities
+                cityElement.style.color = 'white';
+                showMessage(`City ${city} added to your route`, 'success');
+            } else {
+                selectedCities.splice(index, 1);
+                cityElement.classList.remove('selected');
+                cityElement.style.backgroundColor = ''; // Reset to default color
+                cityElement.style.color = '';
+                showMessage(`City ${city} removed from your route`, 'success');
+            }
+            
+            // Update selected cities display
+            selectedCitiesDisplay.textContent = selectedCities.length > 0 ? selectedCities.join(', ') : '-';
+            
+            // Enable/disable buttons based on selection count
+            if (selectedCities.length >= 1) {
+                submitButton.disabled = false;
+                showSolutionButton.disabled = false;
+            } else {
+                submitButton.disabled = true;
+                showSolutionButton.disabled = true;
+            }
+        } catch (error) {
+            showMessage(error.message, 'error');
+            console.error('City selection error:', error);
         }
     }
     
@@ -169,40 +212,29 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Submit player route function
     function submitPlayerRoute() {
-        console.log('Submitting player route...');
-        console.log('Game active:', gameActive);
-        console.log('Selected cities:', selectedCities);
-        console.log('Home city:', homeCity);
-        
-        if (!gameActive) {
-            console.error('Game not active');
-            showMessage('Please start a new game first', 'error');
-            return;
-        }
-        
-        if (selectedCities.length < 1) {
-            console.error('No cities selected');
-            showMessage('You need to select at least 1 city to submit a route', 'error');
-            return;
-        }
-        
         try {
+            if (!gameActive) {
+                throw new Error('Please start a new game first');
+            }
+            
+            if (!playerName) {
+                throw new Error('Player name is required');
+            }
+            
+            if (selectedCities.length < 1) {
+                throw new Error('You need to select at least 1 city to submit a route');
+            }
+            
             // Calculate player's route
             playerRoute = [homeCity, ...selectedCities, homeCity];
-            console.log('Complete route:', playerRoute);
             
             // Calculate distance
             const playerDistance = calculateRouteDistance(playerRoute);
-            console.log('Calculated distance:', playerDistance);
             
             // Clear previous paths
             document.querySelectorAll('.path').forEach(el => el.remove());
             
             // Update displays
-            console.log('Updating displays...');
-            console.log('Route to display:', playerRoute.join(' → '));
-            console.log('Distance to display:', `${playerDistance} km`);
-            
             playerRouteDisplay.textContent = playerRoute.join(' → ');
             playerDistanceDisplay.textContent = `${playerDistance} km`;
             
@@ -215,19 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update status
             statusDisplay.textContent = `Route submitted! Distance: ${playerDistance} km`;
             
-            console.log('Route submission completed successfully');
             showMessage('Your route has been submitted!', 'success');
             
-            // Verify the updates
-            console.log('Final display values:', {
-                route: playerRouteDisplay.textContent,
-                distance: playerDistanceDisplay.textContent,
-                status: statusDisplay.textContent
-            });
-            
         } catch (error) {
-            console.error('Error in submitPlayerRoute:', error);
-            showMessage('Error submitting route. Please try again.', 'error');
+            showMessage(error.message, 'error');
+            console.error('Route submission error:', error);
         }
     }
     

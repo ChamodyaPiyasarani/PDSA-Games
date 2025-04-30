@@ -185,7 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Find all solutions
     findSolutionsButton.addEventListener('click', () => {
-        if (!gameActive) return;
+        if (!gameActive) {
+            showMessage('Please start a new game first', 'error');
+            return;
+        }
         
         gameActive = false;
         statusDisplay.textContent = 'Finding all solutions...';
@@ -216,18 +219,35 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         // Display solutions
                         allSolutions = threadedData.solutions;
-                        foundSolutions = 0;
                         displaySolutions();
                         
                         gameActive = true;
                         statusDisplay.textContent = `Found ${allSolutions.length} solutions!`;
+                    })
+                    .catch(error => {
+                        console.error('Error finding threaded solutions:', error);
+                        showMessage('Error finding solutions. Please try again.', 'error');
+                        gameActive = true;
                     });
+            })
+            .catch(error => {
+                console.error('Error finding sequential solutions:', error);
+                showMessage('Error finding solutions. Please try again.', 'error');
+                gameActive = true;
             });
     });
     
     // Display solutions
     function displaySolutions() {
         solutionsList.innerHTML = '';
+        
+        if (!allSolutions || allSolutions.length === 0) {
+            const noSolutions = document.createElement('div');
+            noSolutions.className = 'no-solutions';
+            noSolutions.textContent = 'No solutions found';
+            solutionsList.appendChild(noSolutions);
+            return;
+        }
         
         allSolutions.forEach((solution, index) => {
             const solutionItem = document.createElement('div');
@@ -237,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const solutionBoard = document.createElement('div');
             solutionBoard.className = 'solution-board';
             
+            // Create a mini chessboard for this solution
             for (let row = 0; row < 8; row++) {
                 for (let col = 0; col < 8; col++) {
                     const square = document.createElement('div');

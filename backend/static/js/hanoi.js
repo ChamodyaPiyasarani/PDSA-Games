@@ -46,6 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         playerName = name;
         console.log('Starting game initialization...');
+        
+        // Randomly select disk count between 5 and 10
+        diskCount = Math.floor(Math.random() * 6) + 5; // Generates random number between 5 and 10
+        
         // Clear previous game
         document.querySelectorAll('.disks').forEach(disks => {
             disks.innerHTML = '';
