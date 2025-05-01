@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameId = null;
     let allSolutions = [];
     let foundSolutions = 0;
+    let playerName = '';
     
     // Initialize the chessboard
     function initializeChessboard() {
@@ -62,9 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
         queens.push({ row, col });
         updateBoard();
         
+        // Check if all queens are placed
         if (queens.length === 8) {
-            submitButton.disabled = false;
-            showMessage('Congratulations! You placed all 8 queens! Click Submit to verify your solution', 'success');
+            checkSolutionValidity();
         }
     }
     
@@ -78,6 +79,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Math.abs(queen.row - row) === Math.abs(queen.col - col)) return false;
         }
         return true;
+    }
+    
+    // Check if current solution is valid
+    function checkSolutionValidity() {
+        const isValid = queens.every(queen => {
+            const otherQueens = queens.filter(q => q !== queen);
+            return isSafe(queen.row, queen.col, otherQueens);
+        });
+        
+        if (isValid) {
+            statusDisplay.textContent = 'Valid solution! Click Submit to save.';
+            submitButton.disabled = false;
+            showMessage('Congratulations! You placed all 8 queens correctly!', 'success');
+        } else {
+            statusDisplay.textContent = 'Invalid solution - queens are attacking each other';
+            submitButton.disabled = true;
+            showMessage('Some queens are attacking each other. Try again!', 'error');
+        }
     }
     
     // Update the board visualization
@@ -116,24 +135,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update queens count
         queensCountDisplay.textContent = queens.length;
         
-        // Check if we have a valid solution
-        if (queens.length === 8) {
-            const isValid = queens.every(queen => {
-                const otherQueens = queens.filter(q => q !== queen);
-                return isSafe(queen.row, queen.col, otherQueens);
-            });
-            
-            if (isValid) {
-                statusDisplay.textContent = 'You found a valid solution! Click Submit to save it.';
-                submitButton.disabled = false;
-            } else {
-                statusDisplay.textContent = 'You placed 8 queens, but they are threatening each other. Try again!';
-                submitButton.disabled = true;
-            }
-        } else {
+        // Update status message
+        if (queens.length < 8) {
             statusDisplay.textContent = 'Place 8 queens on the board so that no two threaten each other';
             submitButton.disabled = true;
         }
+    }
+    
+    // Show message to user
+    function showMessage(message, type) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${type}`;
+        messageElement.textContent = message;
+        document.body.appendChild(messageElement);
+        
+        setTimeout(() => {
+            messageElement.remove();
+        }, 3000);
     }
     
     // Start a new game
@@ -153,6 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDisplay.textContent = 'Place 8 queens on the board so that no two threaten each other';
         submitButton.disabled = true;
         chessboard.classList.add('active');
+        allSolutions = [];
+        solutionsList.innerHTML = '';
+        
+        // Create new game in database
+        createNewGame();
         
         showMessage('Game started! Place 8 queens on the board', 'success');
     }
@@ -169,14 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Verify the solution
+        // Verify the solution again before submitting
         const isValid = queens.every((queen, index) => {
             const otherQueens = queens.filter((_, i) => i !== index);
             return isSafe(queen.row, queen.col, otherQueens);
         });
         
         if (isValid) {
-            showMessage('Congratulations! You found a valid solution!', 'success');
             saveSolution(queens);
         } else {
             showMessage('This is not a valid solution. Some queens are attacking each other', 'error');
@@ -184,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Find all solutions
-    findSolutionsButton.addEventListener('click', () => {
+    function findAllSolutions() {
         if (!gameActive) {
             showMessage('Please start a new game first', 'error');
             return;
@@ -192,11 +214,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
         gameActive = false;
         statusDisplay.textContent = 'Finding all solutions...';
+        submitButton.disabled = true;
+        
+        // Reset previous results
+        sequentialSolutionsDisplay.textContent = '0';
+        threadedSolutionsDisplay.textContent = '0';
+        sequentialTimeDisplay.textContent = '0ms';
+        threadedTimeDisplay.textContent = '0ms';
+        solutionsList.innerHTML = '';
         
         // Find solutions sequentially
         let startTime = performance.now();
         fetch('/api/queens/solutions/sequential')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
             .then(data => {
                 const endTime = performance.now();
                 sequentialSolutionsDisplay.textContent = data.solutions.length;
@@ -208,7 +241,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Find solutions with threading
                 startTime = performance.now();
                 fetch('/api/queens/solutions/threaded')
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
                     .then(threadedData => {
                         const threadedEndTime = performance.now();
                         threadedSolutionsDisplay.textContent = threadedData.solutions.length;
@@ -226,16 +262,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                     .catch(error => {
                         console.error('Error finding threaded solutions:', error);
-                        showMessage('Error finding solutions. Please try again.', 'error');
+                        showMessage('Error finding threaded solutions. Please try again.', 'error');
                         gameActive = true;
                     });
             })
             .catch(error => {
                 console.error('Error finding sequential solutions:', error);
-                showMessage('Error finding solutions. Please try again.', 'error');
+                showMessage('Error finding sequential solutions. Please try again.', 'error');
                 gameActive = true;
             });
-    });
+    }
     
     // Display solutions
     function displaySolutions() {
@@ -288,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function displaySolutionOnBoard(solution) {
         queens = JSON.parse(JSON.stringify(solution));
         updateBoard();
+        checkSolutionValidity();
     }
     
     // Database functions
@@ -301,17 +338,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 player_name: playerName
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(data => {
             gameId = data.game_id;
+            console.log('New game created with ID:', gameId);
         })
         .catch(error => {
             console.error('Error creating new game:', error);
+            showMessage('Error creating new game', 'error');
         });
     }
     
     function saveSolution(solution) {
-        if (!gameId) return;
+        if (!gameId) {
+            showMessage('No active game to save solution to', 'error');
+            return;
+        }
         
         fetch('/api/queens/solutions', {
             method: 'POST',
@@ -324,12 +369,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 solution_number: foundSolutions + 1
             })
         })
-        .then(() => {
-            foundSolutions++;
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            foundSolutions = data.solution_number;
+            showMessage(`Solution ${foundSolutions} saved successfully!`, 'success');
             loadGameHistory();
         })
         .catch(error => {
             console.error('Error saving solution:', error);
+            showMessage('Error saving solution', 'error');
         });
     }
     
@@ -342,19 +393,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                game_id: gameId,
                 algorithm_type: algorithm,
                 solutions_found: solutions,
                 time_taken: time
             })
         })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            console.log(`${algorithm} algorithm time saved`);
+        })
         .catch(error => {
-            console.error('Error saving algorithm time:', error);
+            console.error(`Error saving ${algorithm} algorithm time:`, error);
         });
     }
     
     function loadGameHistory() {
         fetch('/api/queens/games')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(games => {
             historyList.innerHTML = '';
             games.forEach(game => {
@@ -369,8 +428,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 solutionSpan.className = 'history-solution';
                 solutionSpan.textContent = `Solution ${game.solution_number}`;
                 
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'history-date';
+                dateSpan.textContent = new Date(game.date).toLocaleString();
+                
                 item.appendChild(playerSpan);
                 item.appendChild(solutionSpan);
+                item.appendChild(dateSpan);
                 historyList.appendChild(item);
             });
         })
@@ -379,8 +443,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Start game button
+    // Event listeners
     startButton.addEventListener('click', startGame);
+    submitButton.addEventListener('click', submitSolution);
+    findSolutionsButton.addEventListener('click', findAllSolutions);
     
     // Initialize the chessboard
     initializeChessboard();

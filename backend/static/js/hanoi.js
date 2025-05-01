@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fourpegTimeDisplay = document.getElementById('fourpeg-time');
     const pegCountSelect = document.getElementById('peg-count');
     
-    let diskCount = 5; // Set default disk count
+    let diskCount = 5; // Default, will be overwritten by server
     let pegCount = 3;
     let disks = [];
     let selectedDisk = null;
@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let moveHistory = [];
     let gameActive = false;
     let gameId = null;
-    let playerName = ''; // Add playerName declaration
+    let playerName = '';
     
     // Handle peg count change
     pegCountSelect.addEventListener('change', () => {
@@ -47,49 +47,72 @@ document.addEventListener('DOMContentLoaded', () => {
         playerName = name;
         console.log('Starting game initialization...');
         
-        // Randomly select disk count between 5 and 10
-        diskCount = Math.floor(Math.random() * 6) + 5; // Generates random number between 5 and 10
-        
-        // Clear previous game
-        document.querySelectorAll('.disks').forEach(disks => {
-            disks.innerHTML = '';
-        });
-        
-        // Reset game state
-        disks = [];
-        selectedDisk = null;
-        selectedPeg = null;
-        moveCount = 0;
-        moveHistory = [];
-        gameActive = true;
-        
-        // Create disks
-        for (let i = diskCount; i > 0; i--) {
-            const disk = document.createElement('div');
-            disk.className = 'disk';
-            disk.style.width = `${i * 30 + 20}px`;
-            disk.dataset.size = i;
-            disk.style.backgroundColor = `hsl(${(i * 30) % 360}, 70%, 50%)`; // Add color to disks
-            disk.addEventListener('click', (e) => {
-                e.stopPropagation();
-                selectDisk(disk, 'A');
+        // Create a new game record on the server
+        fetch('/api/hanoi/games', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_name: playerName
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to create game');
+            return response.json();
+        })
+        .then(data => {
+            gameId = data.game_id;
+            diskCount = data.disk_count;
+            
+            // Clear previous game
+            document.querySelectorAll('.disks').forEach(disks => {
+                disks.innerHTML = '';
             });
-            disksA.appendChild(disk);
-            disks.push({ size: i, peg: 'A' });
-        }
-        
-        // Update UI
-        moveCountDisplay.textContent = '0';
-        minMovesDisplay.textContent = `${Math.pow(2, diskCount) - 1}`;
-        diskCountDisplay.textContent = diskCount;
-        statusDisplay.textContent = 'Game started! Click on a disk to select it';
-        startButton.textContent = 'Restart Game';
-        pegsContainer.classList.add('active');
-        
-        // Enable peg interactions
-        enablePegInteractions();
-        
-        showMessage('Game started! Click on a disk to move it', 'success');
+            
+            // Reset game state
+            disks = [];
+            selectedDisk = null;
+            selectedPeg = null;
+            moveCount = 0;
+            moveHistory = [];
+            gameActive = true;
+            
+            // Create disks
+            for (let i = diskCount; i > 0; i--) {
+                const disk = document.createElement('div');
+                disk.className = 'disk';
+                disk.style.width = `${i * 30 + 20}px`;
+                disk.dataset.size = i;
+                disk.style.backgroundColor = `hsl(${(i * 30) % 360}, 70%, 50%)`;
+                
+                disk.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectDisk(disk, 'A');
+                });
+                
+                disksA.appendChild(disk);
+                disks.push({ size: i, peg: 'A' });
+            }
+            
+            // Update UI
+            moveCountDisplay.textContent = '0';
+            minMovesDisplay.textContent = `${Math.pow(2, diskCount) - 1}`;
+            diskCountDisplay.textContent = diskCount;
+            statusDisplay.textContent = 'Game started! Click on a disk to select it';
+            startButton.textContent = 'Restart Game';
+            pegsContainer.classList.add('active');
+            submitButton.disabled = true;
+            
+            // Enable peg interactions
+            enablePegInteractions();
+            
+            showMessage('Game started! Click on a disk to move it', 'success');
+        })
+        .catch(error => {
+            console.error('Error creating game:', error);
+            showMessage('Failed to start game', 'error');
+        });
     }
     
     // Enable peg interactions
@@ -110,17 +133,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectDisk(disk, pegId) {
         if (!gameActive) return;
         
-        // If no disk is selected, select the top disk of this peg
         if (!selectedDisk) {
             const pegDisks = document.getElementById(`disks-${pegId}`).children;
-            if (pegDisks.length > 0 && pegDisks[pegDisks.length - 1] === disk) {
+            const topDisk = pegDisks[pegDisks.length - 1];
+            
+            if (disk === topDisk) {
                 selectedDisk = disk;
                 selectedPeg = pegId;
                 disk.classList.add('selected');
                 statusDisplay.textContent = `Selected disk ${disk.dataset.size}. Now click on a peg to move it.`;
+            } else {
+                showMessage('You can only select the top disk of a peg', 'error');
             }
         } else if (disk === selectedDisk) {
-            // If clicking the same disk, deselect it
             resetSelection();
         }
     }
@@ -136,17 +161,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const pegId = targetPeg.dataset.peg;
         
         if (selectedDisk) {
-            // Moving a disk to a new peg
             if (pegId === selectedPeg) {
                 resetSelection();
                 return;
             }
             
-            // Check if move is valid
             const targetDisks = document.getElementById(`disks-${pegId}`).children;
+            const selectedDiskSize = parseInt(selectedDisk.dataset.size);
+            
             if (targetDisks.length > 0) {
                 const topDiskSize = parseInt(targetDisks[targetDisks.length - 1].dataset.size);
-                const selectedDiskSize = parseInt(selectedDisk.dataset.size);
                 
                 if (selectedDiskSize > topDiskSize) {
                     showMessage('Cannot place a larger disk on a smaller one', 'error');
@@ -155,10 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Move the disk
             moveDisk(selectedDisk, selectedPeg, pegId);
         } else {
-            // Selecting a disk from this peg
             const pegDisks = document.getElementById(`disks-${pegId}`).children;
             if (pegDisks.length > 0) {
                 selectDisk(pegDisks[pegDisks.length - 1], pegId);
@@ -168,10 +190,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Move disk from one peg to another
     function moveDisk(disk, fromPeg, toPeg) {
-        // Remove from old peg
         document.getElementById(`disks-${fromPeg}`).removeChild(disk);
         
-        // Add to new peg
         disk.style.opacity = '1';
         disk.style.transform = 'translateY(0)';
         disk.classList.remove('selected');
@@ -181,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById(`disks-${toPeg}`).appendChild(disk);
         
-        // Update move count and history
         moveCount++;
         moveCountDisplay.textContent = moveCount;
         
@@ -194,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
         movesList.appendChild(moveItem);
         movesList.scrollTop = movesList.scrollHeight;
         
-        // Check if game is won
         if (document.getElementById('disks-C').children.length === diskCount) {
             endGame(true);
         } else {
@@ -202,7 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.disabled = false;
         }
         
-        // Reset selection
         selectedDisk = null;
         selectedPeg = null;
     }
@@ -237,11 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
     solveButton.addEventListener('click', () => {
         if (!gameActive) return;
         
-        // Disable interactions while solving
         disablePegInteractions();
         gameActive = false;
         
-        // Solve using different algorithms and measure time
         const disks = Array.from({length: diskCount}, (_, i) => diskCount - i);
         
         // Recursive solution
@@ -265,7 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fourpegTimeDisplay.textContent = `${(endTime - startTime).toFixed(2)}ms`;
         saveAlgorithmTime('fourpeg', endTime - startTime);
         
-        // Animate the recursive solution (most straightforward to visualize)
         animateSolution(recursiveSolution);
     });
     
@@ -324,11 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (current.stage === 0) {
-                // Move n-1 disks from source to auxiliary
                 current.stage = 1;
                 stack.push({n: current.n - 1, source: current.source, target: current.auxiliary, auxiliary: current.target, stage: 0});
             } else if (current.stage === 1) {
-                // Move nth disk from source to target
                 moves.push({disk: current.n, from: current.source, to: current.target});
                 current.stage = 2;
                 stack.push({n: current.n - 1, source: current.auxiliary, target: current.target, auxiliary: current.source, stage: 0});
@@ -354,34 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return moves;
     }
     
-    // Start game button
-    startButton.addEventListener('click', initializeGame);
-    
-    // Submit solution button
-    submitButton.addEventListener('click', () => {
-        if (!gameActive) {
-            showMessage('Please start a game first', 'error');
-            return;
-        }
-        
-        if (moveHistory.length === 0) {
-            showMessage('No moves have been made yet', 'error');
-            return;
-        }
-        
-        const isComplete = document.getElementById('disks-C').children.length === diskCount;
-        saveGameResult(isComplete);
-        
-        if (isComplete) {
-            showMessage('Solution submitted successfully!', 'success');
-        } else {
-            showMessage('Solution is not complete yet', 'error');
-        }
-    });
-    
     // Save game result
     function saveGameResult(isComplete) {
-        if (!gameId) return;
+        if (!gameId) {
+            console.error('No game ID available');
+            return;
+        }
         
         fetch(`/api/hanoi/games/${gameId}`, {
             method: 'PATCH',
@@ -390,11 +380,12 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             body: JSON.stringify({
                 move_count: moveCount,
-                is_correct: isComplete,
+                is_solved: isComplete ? 1 : 0,
                 move_sequence: JSON.stringify(moveHistory)
             })
         })
-        .then(() => {
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to save game');
             loadGameHistory();
         })
         .catch(error => {
@@ -453,6 +444,43 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error loading game history:', error);
         });
     }
+    
+    // Helper function to show messages
+    function showMessage(message, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = message;
+        document.body.appendChild(messageDiv);
+        
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 3000);
+    }
+    
+    // Start game button
+    startButton.addEventListener('click', initializeGame);
+    
+    // Submit solution button
+    submitButton.addEventListener('click', () => {
+        if (!gameActive) {
+            showMessage('Please start a game first', 'error');
+            return;
+        }
+        
+        if (moveHistory.length === 0) {
+            showMessage('No moves have been made yet', 'error');
+            return;
+        }
+        
+        const isComplete = document.getElementById('disks-C').children.length === diskCount;
+        saveGameResult(isComplete);
+        
+        if (isComplete) {
+            showMessage('Solution submitted successfully!', 'success');
+        } else {
+            showMessage('Solution is not complete yet', 'error');
+        }
+    });
     
     // Load initial game history
     loadGameHistory();

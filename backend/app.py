@@ -244,6 +244,7 @@ def register_routes(app):
             return jsonify({'error': str(e)})
 
     # ========== QUEENS API ==========
+    # ========== QUEENS API ==========
     @app.route('/api/queens/games', methods=['GET', 'POST'])
     def queens_games():
         if request.method == 'POST':
@@ -268,54 +269,111 @@ def register_routes(app):
 
     @app.route('/api/queens/solutions/sequential')
     def get_sequential_solutions():
-        from algorithms.queens.sequential import find_queens_solutions_sequential
-        solutions = find_queens_solutions_sequential()
-        return jsonify({'solutions': solutions})
+        try:
+            # Import from the correct path relative to app.py
+            from backend.algorithms.queens.sequential import find_queens_solutions_sequential
+            solutions = find_queens_solutions_sequential()
+            return jsonify({
+                'solutions': solutions,
+                'count': len(solutions)
+            })
+        except Exception as e:
+            app.logger.error(f"Error in sequential solutions: {str(e)}")
+            return jsonify({
+                'error': 'Failed to find solutions',
+                'details': str(e)
+            }), 500
 
     @app.route('/api/queens/solutions/threaded')
     def get_threaded_solutions():
-        from algorithms.queens.threaded import find_queens_solutions_threaded
-        solutions = find_queens_solutions_threaded()
-        return jsonify({'solutions': solutions})
+        try:
+            # Import from the correct path relative to app.py
+            from backend.algorithms.queens.threaded import find_queens_solutions_threaded
+            solutions = find_queens_solutions_threaded()
+            return jsonify({
+                'solutions': solutions,
+                'count': len(solutions)
+            })
+        except Exception as e:
+            app.logger.error(f"Error in threaded solutions: {str(e)}")
+            return jsonify({
+                'error': 'Failed to find solutions',
+                'details': str(e)
+            }), 500
 
     @app.route('/api/queens/solutions', methods=['POST'])
     def add_queens_solution():
-        data = request.get_json()
-        solution_str = json.dumps(data['solution'])
-        
-        existing_solution = QueensGame.query.filter_by(solution_found=solution_str).first()
-        if existing_solution:
+        try:
+            data = request.get_json()
+            if not data or 'solution' not in data or 'game_id' not in data:
+                return jsonify({'error': 'Invalid request data'}), 400
+            
+            # Convert solution to JSON string for storage
+            solution_str = json.dumps(data['solution'])
+            
+            # Check if solution already exists
+            existing_solution = QueensGame.query.filter_by(solution_found=solution_str).first()
+            if existing_solution:
+                return jsonify({
+                    'message': 'Solution already exists',
+                    'solution_number': existing_solution.solution_number
+                }), 200
+            
+            # Get next solution number
+            max_solution = QueensGame.query.order_by(QueensGame.solution_number.desc()).first()
+            next_number = max_solution.solution_number + 1 if max_solution else 1
+            
+            # Update the game with the solution
+            game = QueensGame.query.get(data['game_id'])
+            if not game:
+                return jsonify({'error': 'Game not found'}), 404
+                
+            game.solution_found = solution_str
+            game.solution_number = next_number
+            db.session.commit()
+            
             return jsonify({
-                'message': 'Solution already exists',
-                'solution_number': existing_solution.solution_number
-            }), 200
-        
-        max_solution = QueensGame.query.order_by(QueensGame.solution_number.desc()).first()
-        next_number = max_solution.solution_number + 1 if max_solution else 1
-        
-        game = QueensGame.query.get(data['game_id'])
-        game.solution_found = solution_str
-        game.solution_number = next_number
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Solution saved',
-            'solution_number': next_number
-        }), 201
+                'message': 'Solution saved',
+                'solution_number': next_number
+            }), 201
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving queens solution: {str(e)}")
+            return jsonify({
+                'error': 'Failed to save solution',
+                'details': str(e)
+            }), 500
 
     @app.route('/api/queens/algorithm-times', methods=['POST'])
     def add_queens_algorithm_time():
-        data = request.get_json()
-        new_time = QueensAlgorithmTime(
-            algorithm_type=data['algorithm_type'],
-            solutions_found=data['solutions_found'],
-            time_taken=data['time_taken']
-        )
-        db.session.add(new_time)
-        db.session.commit()
-        return jsonify({'message': 'Algorithm time recorded'}), 201
+        try:
+            data = request.get_json()
+            required_fields = ['algorithm_type', 'solutions_found', 'time_taken']
+            if not all(field in data for field in required_fields):
+                return jsonify({'error': 'Missing required fields'}), 400
+                
+            new_time = QueensAlgorithmTime(
+                game_id=data.get('game_id'),
+                algorithm_type=data['algorithm_type'],
+                solutions_found=data['solutions_found'],
+                time_taken=data['time_taken']
+            )
+            db.session.add(new_time)
+            db.session.commit()
+            
+            return jsonify({'message': 'Algorithm time recorded'}), 201
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving algorithm time: {str(e)}")
+            return jsonify({
+                'error': 'Failed to record algorithm time',
+                'details': str(e)
+            }), 500
 
     # ========== KNIGHT'S TOUR API ==========
+
     @app.route('/api/knights-tour/games', methods=['GET', 'POST'])
     def knights_tour_games():
         if request.method == 'POST':
@@ -323,12 +381,15 @@ def register_routes(app):
             new_game = KnightsTourGame(
                 player_name=data['player_name'],
                 start_position='',
-                move_sequence='',
+                move_sequence='[]',
                 is_complete=False
             )
             db.session.add(new_game)
             db.session.commit()
-            return jsonify({'game_id': new_game.id}), 201
+            return jsonify({
+                'game_id': new_game.id,
+                'message': 'New game created'
+            }), 201
         else:
             games = KnightsTourGame.query.order_by(KnightsTourGame.date.desc()).limit(10).all()
             return jsonify([{
@@ -337,22 +398,33 @@ def register_routes(app):
                 'start_position': game.start_position,
                 'move_count': len(json.loads(game.move_sequence)) if game.move_sequence else 0,
                 'is_complete': game.is_complete,
-                'date': game.date
+                'date': game.date.strftime('%Y-%m-%d %H:%M:%S')
             } for game in games])
 
     @app.route('/api/knights-tour/games/<int:game_id>', methods=['PATCH'])
     def update_knights_tour_game(game_id):
         game = KnightsTourGame.query.get_or_404(game_id)
         data = request.get_json()
-        game.start_position = data['start_position']
-        game.move_sequence = data['move_sequence']
-        game.is_complete = data['is_complete']
+        
+        if 'start_position' in data:
+            game.start_position = data['start_position']
+        if 'move_sequence' in data:
+            game.move_sequence = json.dumps(data['move_sequence'])
+        if 'is_complete' in data:
+            game.is_complete = data['is_complete']
+        
         db.session.commit()
-        return jsonify({'message': 'Game updated'})
+        return jsonify({
+            'message': 'Game updated successfully',
+            'game_id': game.id
+        })
 
     @app.route('/api/knights-tour/algorithm-times', methods=['POST'])
     def add_knights_algorithm_time():
         data = request.get_json()
+        if not data or 'game_id' not in data or 'algorithm_used' not in data or 'time_taken' not in data:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
         new_time = KnightsAlgorithmTime(
             game_id=data['game_id'],
             algorithm_used=data['algorithm_used'],
@@ -360,7 +432,44 @@ def register_routes(app):
         )
         db.session.add(new_time)
         db.session.commit()
-        return jsonify({'message': 'Algorithm time recorded'}), 201
+        return jsonify({
+            'message': 'Algorithm time recorded',
+            'record_id': new_time.id
+        }), 201
+
+    @app.route('/api/knights-tour/solve/warnsdorff', methods=['POST'])
+    def solve_warnsdorff():
+        try:
+            from backend.algorithms.knights_tour.Warnsdorff import solve
+            data = request.get_json()
+            solution = solve(data['start_row'], data['start_col'])
+            return jsonify({
+                'success': True,
+                'solution': solution,
+                'move_count': len(solution)
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/knights-tour/solve/backtracking', methods=['POST'])
+    def solve_backtracking():
+        try:
+            from backend.algorithms.knights_tour.Backtracking import solve
+            data = request.get_json()
+            solution = solve(data['start_row'], data['start_col'])
+            return jsonify({
+                'success': True,
+                'solution': solution,
+                'move_count': len(solution)
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
 
 if __name__ == '__main__':
     app = create_app()
