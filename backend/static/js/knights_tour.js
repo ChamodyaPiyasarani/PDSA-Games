@@ -315,7 +315,9 @@ document.addEventListener('DOMContentLoaded', () => {
         playerName = name;
         initializeChessboard();
         solveButton.disabled = true;
-        statusDisplay.textContent = 'Preparing to solve...';
+        statusDisplay.textContent = 'Solving...';
+        warnsdorffTimeDisplay.textContent = 'Calculating...';
+        backtrackingTimeDisplay.textContent = 'Calculating...';
 
         try {
             // Create new game in database
@@ -334,7 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             gameId = gameData.game_id;
             gameActive = false;
-            statusDisplay.textContent = 'Solving...';
 
             // Get a random starting position
             const startRow = Math.floor(Math.random() * 8);
@@ -342,40 +343,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Solve using Warnsdorff's algorithm
             let startTime = performance.now();
-            const warnsdorffResponse = await fetch('/api/knights-tour/solve/warnsdorff', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    start_row: startRow,
-                    start_col: startCol
-                })
-            });
+            statusDisplay.textContent = 'Solving with Warnsdorff...';
             
-            const warnsdorffData = await warnsdorffResponse.json();
-            if (!warnsdorffResponse.ok) throw new Error(warnsdorffData.error || 'Failed to solve with Warnsdorff');
-            
+            const warnsdorffSolution = solveWithWarnsdorff(startRow, startCol);
             let endTime = performance.now();
             const warnsdorffTime = endTime - startTime;
             warnsdorffTimeDisplay.textContent = `${warnsdorffTime.toFixed(2)}ms`;
             
             // Solve using backtracking
             startTime = performance.now();
-            const backtrackingResponse = await fetch('/api/knights-tour/solve/backtracking', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    start_row: startRow,
-                    start_col: startCol
-                })
-            });
+            statusDisplay.textContent = 'Solving with Backtracking...';
             
-            const backtrackingData = await backtrackingResponse.json();
-            if (!backtrackingResponse.ok) throw new Error(backtrackingData.error || 'Failed to solve with Backtracking');
-            
+            const backtrackingSolution = solveWithBacktracking(startRow, startCol);
             endTime = performance.now();
             const backtrackingTime = endTime - startTime;
             backtrackingTimeDisplay.textContent = `${backtrackingTime.toFixed(2)}ms`;
@@ -385,16 +364,88 @@ document.addEventListener('DOMContentLoaded', () => {
             await saveAlgorithmTime('backtracking', backtrackingTime);
             
             // Animate the Warnsdorff solution
-            await animateSolution(warnsdorffData.solution, startRow, startCol);
+            statusDisplay.textContent = 'Animating solution...';
+            await animateSolution(warnsdorffSolution, startRow, startCol);
 
         } catch (error) {
             console.error('Error solving:', error);
             showMessage('Error solving the puzzle: ' + error.message, 'error');
+            statusDisplay.textContent = 'Solution failed';
         } finally {
             solveButton.disabled = false;
             gameActive = false;
         }
     });
+
+    // Implement Warnsdorff's algorithm
+    function solveWithWarnsdorff(startRow, startCol) {
+        const board = Array(8).fill().map(() => Array(8).fill(0));
+        board[startRow][startCol] = 1;
+        const moves = [];
+        let currentRow = startRow;
+        let currentCol = startCol;
+
+        for (let move = 2; move <= 64; move++) {
+            const possibleMoves = getPossibleMoves(currentRow, currentCol)
+                .filter(m => board[m.row][m.col] === 0)
+                .map(m => {
+                    m.onwardMoves = getPossibleMoves(m.row, m.col)
+                        .filter(m2 => board[m2.row][m2.col] === 0).length;
+                    return m;
+                });
+
+            if (possibleMoves.length === 0) break;
+
+            possibleMoves.sort((a, b) => a.onwardMoves - b.onwardMoves);
+            const nextMove = possibleMoves[0];
+            board[nextMove.row][nextMove.col] = move;
+            moves.push(nextMove);
+            currentRow = nextMove.row;
+            currentCol = nextMove.col;
+        }
+
+        return moves;
+    }
+
+    // Implement Backtracking algorithm
+    function solveWithBacktracking(startRow, startCol) {
+        const board = Array(8).fill().map(() => Array(8).fill(0));
+        board[startRow][startCol] = 1;
+        const solution = [];
+        const moves = [
+            [2, 1], [2, -1], [-2, 1], [-2, -1],
+            [1, 2], [1, -2], [-1, 2], [-1, -2]
+        ];
+
+        function backtrack(row, col, moveCount) {
+            if (moveCount === 64) return true;
+            
+            const possibleMoves = moves.map(([dr, dc]) => ({
+                row: row + dr,
+                col: col + dc
+            })).filter(m => 
+                m.row >= 0 && m.row < 8 && 
+                m.col >= 0 && m.col < 8 &&
+                board[m.row][m.col] === 0
+            );
+
+            for (const move of possibleMoves) {
+                board[move.row][move.col] = moveCount + 1;
+                solution.push(move);
+                
+                if (backtrack(move.row, move.col, moveCount + 1)) {
+                    return true;
+                }
+                
+                board[move.row][move.col] = 0;
+                solution.pop();
+            }
+            return false;
+        }
+
+        backtrack(startRow, startCol, 1);
+        return solution;
+    }
 
     // Save algorithm time to database
     async function saveAlgorithmTime(algorithm, time) {
@@ -420,49 +471,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Animate the solution
     async function animateSolution(solution, startRow, startCol) {
         return new Promise((resolve) => {
-            // Reset the board
             initializeChessboard();
             board[startRow][startCol] = 1;
             currentPosition = { row: startRow, col: startCol };
             moveCount = 1;
             moveCountDisplay.textContent = '1';
             
-            // Mark the starting position
             const startSquare = document.querySelector(`.square[data-row="${startRow}"][data-col="${startCol}"]`);
             startSquare.classList.add('start', 'current');
             
-            // Add knight to the starting square
             const knight = document.createElement('div');
             knight.className = 'knight';
             knight.textContent = '♞';
             startSquare.appendChild(knight);
             
-            // Add move number
             const moveNumber = document.createElement('div');
             moveNumber.className = 'move-number';
             moveNumber.textContent = '1';
             startSquare.appendChild(moveNumber);
             
-            // Add to move history
             moveHistory = [{ row: startRow, col: startCol, move: 1 }];
             movesList.innerHTML = '';
             addMoveToHistory(1, startRow, startCol);
             
-            // Animate each move
             let i = 0;
-            animationInterval = setInterval(async () => {
+            animationInterval = setInterval(() => {
                 if (i >= solution.length) {
                     clearInterval(animationInterval);
-                    animationInterval = null;
-                    await endGame(true);
+                    statusDisplay.textContent = 'Solution complete!';
                     resolve();
                     return;
                 }
                 
                 const move = solution[i];
-                await makeMove(move.row, move.col, true); // Pass true to indicate automated move
+                makeMove(move.row, move.col, true);
                 i++;
-            }, 100); // Animation speed (100ms per move)
+            }, 100);
         });
     }
 
