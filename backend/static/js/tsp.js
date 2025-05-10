@@ -589,7 +589,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const citiesSpan = document.createElement('span');
                 citiesSpan.className = 'history-cities';
-                citiesSpan.textContent = `${game.home_city} → ${game.selected_cities.split(',').join(' → ')} → ${game.home_city}`;
+                const selectedCities = JSON.parse(game.selected_cities);
+                citiesSpan.textContent = `${game.home_city} → ${selectedCities.join(' → ')} → ${game.home_city}`;
                 
                 item.appendChild(playerSpan);
                 item.appendChild(distanceSpan);

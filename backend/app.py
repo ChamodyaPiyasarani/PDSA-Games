@@ -187,6 +187,13 @@ def register_routes(app):
     # ========== TSP API ==========
     @app.route('/api/tsp/games', methods=['GET', 'POST'])
     def create_tsp_game():
+        if request.method == 'GET':
+            try:
+                games = TSPGame.query.order_by(TSPGame.date.desc()).all()
+                return jsonify([game.to_dict() for game in games]), 200
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+            
         data = request.get_json()
         
         # Validate required fields
