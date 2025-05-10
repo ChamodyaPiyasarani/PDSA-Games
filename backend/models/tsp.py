@@ -18,11 +18,12 @@ class TSPGame(db.Model):
         self.selected_cities = selected_cities
         self.shortest_route = shortest_route
         self.distance = distance
+        self.date = datetime.utcnow()
 
     def to_dict(self):
         """Convert game state to dictionary."""
         return {
-            'id': self.id,
+            'game_id': self.id,
             'player_name': self.player_name,
             'home_city': self.home_city,
             'selected_cities': self.selected_cities,

@@ -6,6 +6,9 @@ import os
 import json
 from datetime import datetime
 import random
+from .utils.validators import GameValidator, ValidationError
+import re
+import uuid
 
 # Add project root to Python path
 project_root = dirname(dirname(abspath(__file__)))
@@ -32,7 +35,32 @@ def create_app():
     # Register routes
     register_routes(app)
     
+    # Register error handlers
+    register_error_handlers(app)
+    
     return app
+
+def register_error_handlers(app):
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(error):
+        return jsonify({
+            'error': str(error),
+            'status': 'error'
+        }), 400
+
+    @app.errorhandler(404)
+    def handle_not_found(error):
+        return jsonify({
+            'error': 'Resource not found',
+            'status': 'error'
+        }), 404
+
+    @app.errorhandler(500)
+    def handle_server_error(error):
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 'error'
+        }), 500
 
 def register_routes(app):
     @app.route('/')
@@ -68,14 +96,25 @@ def register_routes(app):
     @app.route('/api/tic-tac-toe/games', methods=['GET', 'POST'])
     def tic_tac_toe_games():
         if request.method == 'POST':
-            data = request.get_json()
-            new_game = TicTacToeGame(
-                player_name=data['player_name'],
-                result='in_progress'
-            )
-            db.session.add(new_game)
-            db.session.commit()
-            return jsonify({'game_id': new_game.id}), 201
+            try:
+                data = request.get_json()
+                if not data:
+                    raise ValidationError("No data provided")
+                
+                # Validate player name
+                GameValidator.validate_player_name(data.get('player_name'))
+                
+                new_game = TicTacToeGame(
+                    player_name=data['player_name'],
+                    result='in_progress'
+                )
+                db.session.add(new_game)
+                db.session.commit()
+                return jsonify({'game_id': new_game.id}), 201
+            except ValidationError as e:
+                return jsonify({'error': str(e)}), 400
+            except Exception as e:
+                return jsonify({'error': 'Internal server error'}), 500
         else:
             games = TicTacToeGame.query.order_by(TicTacToeGame.date.desc()).limit(10).all()
             return jsonify([{
@@ -87,93 +126,189 @@ def register_routes(app):
 
     @app.route('/api/tic-tac-toe/games/<int:game_id>', methods=['PATCH'])
     def update_tic_tac_toe_game(game_id):
-        game = TicTacToeGame.query.get_or_404(game_id)
-        data = request.get_json()
-        game.result = data['result']
-        db.session.commit()
-        return jsonify({'message': 'Game updated'})
+        try:
+            game = TicTacToeGame.query.get_or_404(game_id)
+            data = request.get_json()
+            if not data:
+                raise ValidationError("No data provided")
+            
+            if 'result' not in data:
+                raise ValidationError("Result is required")
+            
+            valid_results = ['in_progress', 'win', 'lose', 'draw']
+            if data['result'] not in valid_results:
+                raise ValidationError(f"Result must be one of: {', '.join(valid_results)}")
+            
+            game.result = data['result']
+            db.session.commit()
+            return jsonify({'message': 'Game updated'})
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            return jsonify({'error': 'Internal server error'}), 500
 
     @app.route('/api/tic-tac-toe/moves', methods=['POST'])
     def add_tic_tac_toe_move():
-        data = request.get_json()
-        new_move = TicTacToeMove(
-            game_id=data['game_id'],
-            algorithm_used=data['algorithm_used'],
-            time_taken=data['time_taken'],
-            move_details=data['move_details']
-        )
-        db.session.add(new_move)
-        db.session.commit()
-        return jsonify({'message': 'Move recorded'}), 201
+        try:
+            data = request.get_json()
+            if not data:
+                raise ValidationError("No data provided")
+            
+            # Validate game ID
+            GameValidator.validate_game_id(data.get('game_id'))
+            
+            # Validate move details
+            if 'move_details' not in data:
+                raise ValidationError("Move details are required")
+            
+            move_details = data['move_details']
+            if not isinstance(move_details, dict):
+                raise ValidationError("Move details must be an object")
+            
+            if 'position' not in move_details or 'board_state' not in move_details:
+                raise ValidationError("Move details must include position and board_state")
+            
+            GameValidator.validate_move(move_details['position'], move_details['board_state'])
+            
+            new_move = TicTacToeMove(
+                game_id=data['game_id'],
+                algorithm_used=data.get('algorithm_used', 'manual'),
+                time_taken=data.get('time_taken', 0),
+                move_details=move_details
+            )
+            db.session.add(new_move)
+            db.session.commit()
+            return jsonify({'message': 'Move recorded'}), 201
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            return jsonify({'error': 'Internal server error'}), 500
 
     # ========== TSP API ==========
     @app.route('/api/tsp/games', methods=['GET', 'POST'])
-    def tsp_games():
-        if request.method == 'POST':
-            data = request.get_json()
-            new_game = TSPGame(
+    def create_tsp_game():
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['player_name', 'home_city', 'selected_cities', 'shortest_route', 'distance']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        try:
+            # Create new game
+            game = TSPGame(
                 player_name=data['player_name'],
                 home_city=data['home_city'],
                 selected_cities=data['selected_cities'],
-                shortest_route='',
-                distance=0
+                shortest_route=data['shortest_route'],
+                distance=float(data['distance'])
             )
-            db.session.add(new_game)
+            
+            db.session.add(game)
             db.session.commit()
-            return jsonify({'game_id': new_game.id}), 201
-        else:
-            games = TSPGame.query.order_by(TSPGame.date.desc()).limit(10).all()
-            return jsonify([{
-                'id': game.id,
-                'player_name': game.player_name,
-                'home_city': game.home_city,
-                'selected_cities': game.selected_cities,
-                'shortest_route': game.shortest_route,
-                'distance': game.distance,
-                'date': game.date
-            } for game in games])
+            
+            return jsonify(game.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
 
     @app.route('/api/tsp/games/<int:game_id>', methods=['PATCH'])
     def update_tsp_game(game_id):
         game = TSPGame.query.get_or_404(game_id)
         data = request.get_json()
-        game.selected_cities = data['selected_cities']
-        game.shortest_route = data['shortest_route']
-        game.distance = data['distance']
-        if 'player_distance' in data:
-            game.player_distance = data['player_distance']
-        db.session.commit()
-        return jsonify({'message': 'Game updated'})
+        
+        try:
+            if 'selected_cities' in data:
+                game.selected_cities = data['selected_cities']
+            if 'shortest_route' in data:
+                game.shortest_route = data['shortest_route']
+            if 'distance' in data:
+                game.distance = float(data['distance'])
+            
+            db.session.commit()
+            return jsonify(game.to_dict()), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
+
+    @app.route('/api/tsp/games/<int:game_id>', methods=['GET'])
+    def get_tsp_game(game_id):
+        game = TSPGame.query.get_or_404(game_id)
+        return jsonify(game.to_dict()), 200
 
     @app.route('/api/tsp/algorithm-times', methods=['POST'])
-    def add_tsp_algorithm_time():
+    def save_tsp_algorithm_time():
         data = request.get_json()
-        new_time = TSPAlgorithmTime(
-            game_id=data['game_id'],
-            algorithm_used=data['algorithm_used'],
-            time_taken=data['time_taken']
-        )
-        db.session.add(new_time)
-        db.session.commit()
-        return jsonify({'message': 'Algorithm time recorded'}), 201
+        
+        # Validate required fields
+        required_fields = ['game_id', 'algorithm_used', 'time_taken']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        try:
+            # Create new algorithm time record
+            algorithm_time = TSPAlgorithmTime(
+                game_id=data['game_id'],
+                algorithm_used=data['algorithm_used'],
+                time_taken=float(data['time_taken'])
+            )
+            
+            db.session.add(algorithm_time)
+            db.session.commit()
+            
+            return jsonify({
+                'id': algorithm_time.id,
+                'game_id': algorithm_time.game_id,
+                'algorithm_used': algorithm_time.algorithm_used,
+                'time_taken': algorithm_time.time_taken
+            }), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
 
     # ========== HANOI API ==========
     @app.route('/api/hanoi/games', methods=['GET', 'POST'])
     def hanoi_games():
         if request.method == 'POST':
-            data = request.get_json()
-            new_game = HanoiGame(
-                player_name=data['player_name'],
-                disk_count=random.randint(5, 10),
-                move_count=0,
-                is_solved=0
-            )
-            db.session.add(new_game)
-            db.session.commit()
-            return jsonify({
-                'game_id': new_game.id,
-                'disk_count': new_game.disk_count
-            }), 201
+            try:
+                data = request.get_json()
+                if not data:
+                    raise ValidationError("No data provided")
+                
+                if 'player_name' not in data:
+                    raise ValidationError("Player name is required")
+                
+                player_name = data['player_name']
+                if not player_name or not isinstance(player_name, str):
+                    raise ValidationError("Player name must be a non-empty string")
+                
+                if len(player_name) < 2:
+                    raise ValidationError("Player name must be at least 2 characters")
+                
+                if len(player_name) > 50:
+                    raise ValidationError("Player name must be at most 50 characters")
+                
+                if not re.match(r'^[a-zA-Z0-9\s\-_]+$', player_name):
+                    raise ValidationError("Player name can only contain letters, numbers, spaces, hyphens, and underscores")
+                
+                new_game = HanoiGame(
+                    player_name=player_name,
+                    disk_count=random.randint(5, 10),
+                    move_count=0,
+                    is_solved=0
+                )
+                db.session.add(new_game)
+                db.session.commit()
+                return jsonify({
+                    'game_id': new_game.id,
+                    'disk_count': new_game.disk_count
+                }), 201
+            except ValidationError as e:
+                return jsonify({'error': str(e)}), 400
+            except Exception as e:
+                return jsonify({'error': 'Internal server error'}), 500
         else:
             games = HanoiGame.query.order_by(HanoiGame.created_at.desc()).limit(10).all()
             return jsonify([{
@@ -187,45 +322,92 @@ def register_routes(app):
 
     @app.route('/api/hanoi/games/<int:game_id>', methods=['PATCH'])
     def update_hanoi_game(game_id):
-        game = HanoiGame.query.get_or_404(game_id)
-        data = request.get_json()
-        game.move_count = data['move_count']
-        game.is_solved = data['is_solved']
-        if 'move_sequence' in data:
-            game.move_sequence = data['move_sequence']
-        db.session.commit()
-        return jsonify({'message': 'Game updated'})
+        try:
+            game = HanoiGame.query.get_or_404(game_id)
+            data = request.get_json()
+            if not data:
+                raise ValidationError("No data provided")
+            
+            required_fields = ['move_count', 'is_solved']
+            for field in required_fields:
+                if field not in data:
+                    raise ValidationError(f"{field} is required")
+            
+            if not isinstance(data['move_count'], int) or data['move_count'] < 0:
+                raise ValidationError("move_count must be a non-negative integer")
+            
+            if not isinstance(data['is_solved'], (int, bool)):
+                raise ValidationError("is_solved must be a boolean or integer")
+            
+            game.move_count = data['move_count']
+            game.is_solved = int(data['is_solved'])
+            
+            if 'move_sequence' in data:
+                if not isinstance(data['move_sequence'], list):
+                    raise ValidationError("move_sequence must be a list")
+                game.move_sequence = data['move_sequence']
+            
+            db.session.commit()
+            return jsonify({'message': 'Game updated'})
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            return jsonify({'error': 'Internal server error'}), 500
 
     @app.route('/api/hanoi/algorithm-times', methods=['POST'])
     def add_hanoi_algorithm_time():
-        data = request.get_json()
-        new_time = HanoiAlgorithmTime(
-            game_id=data['game_id'],
-            algorithm_used=data['algorithm_used'],
-            pegs_used=data['pegs_used'],
-            time_taken=data['time_taken']
-        )
-        db.session.add(new_time)
-        db.session.commit()
-        return jsonify({'message': 'Algorithm time recorded'}), 201
+        try:
+            data = request.get_json()
+            if not data:
+                raise ValidationError("No data provided")
+            
+            required_fields = ['game_id', 'algorithm_used', 'time_taken']
+            for field in required_fields:
+                if field not in data:
+                    raise ValidationError(f"{field} is required")
+            
+            GameValidator.validate_game_id(data['game_id'])
+            
+            if not isinstance(data['time_taken'], (int, float)) or data['time_taken'] < 0:
+                raise ValidationError("time_taken must be a non-negative number")
+            
+            new_time = HanoiAlgorithmTime(
+                game_id=data['game_id'],
+                algorithm_used=data['algorithm_used'],
+                time_taken=data['time_taken']
+            )
+            db.session.add(new_time)
+            db.session.commit()
+            return jsonify({'message': 'Algorithm time recorded'}), 201
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            return jsonify({'error': 'Internal server error'}), 500
 
     @app.route('/api/hanoi/save', methods=['POST'])
     def save_hanoi_game():
-        data = request.get_json()
-        
-        game = HanoiGame(
-            player_name=data['player_name'],
-            disk_count=data['disk_count'],
-            move_count=data['move_count'],
-            move_sequence=str(data['move_sequence']),
-            is_complete=data['is_complete'],
-            timestamp=datetime.utcnow()
-        )
-        
         try:
+            data = request.get_json()
+            if not data:
+                raise ValidationError("No data provided")
+            
+            # Validate player name
+            GameValidator.validate_player_name(data.get('player_name'))
+            
+            game = HanoiGame(
+                player_name=data['player_name'],
+                disk_count=data['disk_count'],
+                move_count=data['move_count'],
+                move_sequence=str(data['move_sequence']),
+                is_complete=data['is_complete'],
+                timestamp=datetime.utcnow()
+            )
+            
             db.session.add(game)
             db.session.commit()
             return jsonify({'success': True})
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
         except Exception as e:
             db.session.rollback()
             return jsonify({'success': False, 'error': str(e)})
@@ -244,19 +426,42 @@ def register_routes(app):
             return jsonify({'error': str(e)})
 
     # ========== QUEENS API ==========
-    # ========== QUEENS API ==========
     @app.route('/api/queens/games', methods=['GET', 'POST'])
     def queens_games():
         if request.method == 'POST':
-            data = request.get_json()
-            new_game = QueensGame(
-                player_name=data['player_name'],
-                solution_found='',
-                solution_number=0
-            )
-            db.session.add(new_game)
-            db.session.commit()
-            return jsonify({'game_id': new_game.id}), 201
+            try:
+                data = request.get_json()
+                if not data:
+                    raise ValidationError("No data provided")
+                
+                if 'player_name' not in data:
+                    raise ValidationError("Player name is required")
+                
+                player_name = data['player_name']
+                if not player_name or not isinstance(player_name, str):
+                    raise ValidationError("Player name must be a non-empty string")
+                
+                if len(player_name) < 2:
+                    raise ValidationError("Player name must be at least 2 characters")
+                
+                if len(player_name) > 50:
+                    raise ValidationError("Player name must be at most 50 characters")
+                
+                if not re.match(r'^[a-zA-Z0-9\s\-_]+$', player_name):
+                    raise ValidationError("Player name can only contain letters, numbers, spaces, hyphens, and underscores")
+                
+                new_game = QueensGame(
+                    player_name=player_name,
+                    solution_found='',
+                    solution_number=0
+                )
+                db.session.add(new_game)
+                db.session.commit()
+                return jsonify({'game_id': new_game.id}), 201
+            except ValidationError as e:
+                return jsonify({'error': str(e)}), 400
+            except Exception as e:
+                return jsonify({'error': 'Internal server error'}), 500
         else:
             games = QueensGame.query.order_by(QueensGame.date.desc()).limit(10).all()
             return jsonify([{
@@ -377,19 +582,43 @@ def register_routes(app):
     @app.route('/api/knights-tour/games', methods=['GET', 'POST'])
     def knights_tour_games():
         if request.method == 'POST':
-            data = request.get_json()
-            new_game = KnightsTourGame(
-                player_name=data['player_name'],
-                start_position='',
-                move_sequence='[]',
-                is_complete=False
-            )
-            db.session.add(new_game)
-            db.session.commit()
-            return jsonify({
-                'game_id': new_game.id,
-                'message': 'New game created'
-            }), 201
+            try:
+                data = request.get_json()
+                if not data:
+                    raise ValidationError("No data provided")
+                
+                if 'player_name' not in data:
+                    raise ValidationError("Player name is required")
+                
+                player_name = data['player_name']
+                if not player_name or not isinstance(player_name, str):
+                    raise ValidationError("Player name must be a non-empty string")
+                
+                if len(player_name) < 2:
+                    raise ValidationError("Player name must be at least 2 characters")
+                
+                if len(player_name) > 50:
+                    raise ValidationError("Player name must be at most 50 characters")
+                
+                if not re.match(r'^[a-zA-Z0-9\s\-_]+$', player_name):
+                    raise ValidationError("Player name can only contain letters, numbers, spaces, hyphens, and underscores")
+                
+                new_game = KnightsTourGame(
+                    player_name=player_name,
+                    start_position='',
+                    move_sequence='[]',
+                    is_complete=False
+                )
+                db.session.add(new_game)
+                db.session.commit()
+                return jsonify({
+                    'game_id': new_game.id,
+                    'message': 'New game created'
+                }), 201
+            except ValidationError as e:
+                return jsonify({'error': str(e)}), 400
+            except Exception as e:
+                return jsonify({'error': 'Internal server error'}), 500
         else:
             games = KnightsTourGame.query.order_by(KnightsTourGame.date.desc()).limit(10).all()
             return jsonify([{

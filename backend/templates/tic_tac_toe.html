@@ -10,7 +10,7 @@
     <div class="game-controls">
         <div class="player-info">
             <label for="player-name">Enter Your Name:</label>
-            <input type="text" id="player-name" placeholder="Your name">
+            <input type="text" id="player-name" placeholder="Your name" required>
         </div>
         <div class="algorithm-info">
             <label for="algorithm-select">Computer Algorithm:</label>
@@ -37,4 +37,20 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/tic_tac_toe.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const playerNameInput = document.getElementById('player-name');
+        validation.setupValidation(playerNameInput, validation.validatePlayerName);
+        document.getElementById('start-game').addEventListener('click', (e) => {
+            const result = validation.validatePlayerName(playerNameInput.value);
+            if (!result.isValid) {
+                validation.showValidationMessage(playerNameInput, result.message, false);
+                playerNameInput.focus();
+                return;
+            }
+            // The tic_tac_toe.js startGame() should be called here
+            if (typeof startGame === 'function') startGame();
+        });
+    });
+</script>
 {% endblock %}

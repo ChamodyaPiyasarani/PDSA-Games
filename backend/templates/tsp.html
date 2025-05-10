@@ -13,7 +13,7 @@
     <div class="game-controls">
         <div class="player-info">
             <label for="player-name">Your Name:</label>
-            <input type="text" id="player-name" placeholder="Enter your name">
+            <input type="text" id="player-name" placeholder="Enter your name" required>
         </div>
         
         <button id="start-game" class="btn btn-primary">Start New Game</button>
@@ -91,4 +91,19 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/tsp.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const playerNameInput = document.getElementById('player-name');
+        validation.setupValidation(playerNameInput, validation.validatePlayerName);
+        document.getElementById('start-game').addEventListener('click', (e) => {
+            const result = validation.validatePlayerName(playerNameInput.value);
+            if (!result.isValid) {
+                validation.showValidationMessage(playerNameInput, result.message, false);
+                playerNameInput.focus();
+                return;
+            }
+            if (typeof initializeGame === 'function') initializeGame();
+        });
+    });
+</script>
 {% endblock %}

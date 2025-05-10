@@ -490,20 +490,37 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({
                 player_name: playerName,
                 home_city: homeCity,
-                selected_cities: ''
+                selected_cities: JSON.stringify([]),
+                shortest_route: JSON.stringify([]),
+                distance: 0,
+                player_distance: 0
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to create game');
+            return response.json();
+        })
         .then(data => {
             gameId = data.game_id;
+            console.log('New game created with ID:', gameId);
+            showMessage('Game created successfully!', 'success');
         })
         .catch(error => {
             console.error('Error creating new game:', error);
+            showMessage('Error creating new game: ' + error.message, 'error');
         });
     }
     
     function saveGameResult(playerDistance, optimalDistance) {
-        if (!gameId) return;
+        if (!gameId) {
+            showMessage('No active game to save results to', 'error');
+            return;
+        }
+        
+        if (!selectedCities || !optimalRoute) {
+            showMessage('Missing game data to save', 'error');
+            return;
+        }
         
         fetch(`/api/tsp/games/${gameId}`, {
             method: 'PATCH',
@@ -511,17 +528,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                selected_cities: selectedCities.join(','),
-                shortest_route: optimalRoute.join(','),
+                selected_cities: JSON.stringify(selectedCities),
+                shortest_route: JSON.stringify(optimalRoute),
                 distance: optimalDistance,
                 player_distance: playerDistance
             })
         })
-        .then(() => {
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to save game result: ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Game result saved successfully:', data);
+            showMessage('Game results saved successfully!', 'success');
             loadGameHistory();
         })
         .catch(error => {
             console.error('Error saving game result:', error);
+            showMessage('Error saving game results: ' + error.message, 'error');
         });
     }
     

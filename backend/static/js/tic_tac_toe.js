@@ -246,13 +246,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start a new game
     function startGame() {
-        const name = playerNameInput.value.trim();
-        if (!name) {
-            showMessage('Please enter your name to start the game', 'error');
+        const result = validation.validatePlayerName(playerNameInput.value);
+        if (!result.isValid) {
+            validation.showValidationMessage(playerNameInput, result.message, false);
             return;
         }
         
-        playerName = name;
+        playerName = playerNameInput.value.trim();
         gameActive = true;
         currentPlayer = 'X';
         gameState = Array(25).fill('');

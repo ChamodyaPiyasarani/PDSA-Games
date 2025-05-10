@@ -349,6 +349,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let endTime = performance.now();
             const warnsdorffTime = endTime - startTime;
             warnsdorffTimeDisplay.textContent = `${warnsdorffTime.toFixed(2)}ms`;
+
+            // Check if solution is complete
+            if (!warnsdorffSolution || warnsdorffSolution.length !== 63) {
+                statusDisplay.textContent = 'No complete tour found from this starting position. Please try again.';
+                showMessage('No complete tour found from this starting position. Please try again.', 'error');
+                solveButton.disabled = false;
+                return;
+            }
             
             // Solve using backtracking
             startTime = performance.now();

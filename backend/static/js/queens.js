@@ -156,13 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start a new game
     function startGame() {
-        const name = playerNameInput.value.trim();
-        if (!name) {
-            showMessage('Please enter your name to start the game', 'error');
+        const result = validation.validatePlayerName(playerNameInput.value);
+        if (!result.isValid) {
+            validation.showValidationMessage(playerNameInput, result.message, false);
             return;
         }
         
-        playerName = name;
+        playerName = playerNameInput.value.trim();
         initializeChessboard();
         queens = [];
         gameActive = true;
@@ -211,9 +211,11 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessage('Please start a new game first', 'error');
             return;
         }
+        
         gameActive = false;
         statusDisplay.textContent = 'Finding all solutions...';
         submitButton.disabled = true;
+        
         // Reset previous results
         sequentialSolutionsDisplay.textContent = '0';
         threadedSolutionsDisplay.textContent = '0';

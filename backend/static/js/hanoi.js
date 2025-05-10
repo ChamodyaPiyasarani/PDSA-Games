@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({
                 move_count: moveCount,
                 is_solved: isComplete ? 1 : 0,
-                move_sequence: JSON.stringify(moveHistory)
+                move_sequence: moveHistory
             })
         })
         .then(response => {
