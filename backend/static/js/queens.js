@@ -211,11 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessage('Please start a new game first', 'error');
             return;
         }
-        
         gameActive = false;
         statusDisplay.textContent = 'Finding all solutions...';
         submitButton.disabled = true;
-        
         // Reset previous results
         sequentialSolutionsDisplay.textContent = '0';
         threadedSolutionsDisplay.textContent = '0';
