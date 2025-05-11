@@ -106,7 +106,7 @@ def register_routes(app):
                 
                 new_game = TicTacToeGame(
                     player_name=data['player_name'],
-                    result='in_progress'
+                    result='lose'
                 )
                 db.session.add(new_game)
                 db.session.commit()
