@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fourpegTimeDisplay = document.getElementById('fourpeg-time');
     const pegCountSelect = document.getElementById('peg-count');
     
-    let diskCount = 5; // Default, will be overwritten by server
+    let diskCount = 5; 
     let pegCount = 3;
     let disks = [];
     let selectedDisk = null;
@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameId = null;
     let playerName = '';
     
-    // Handle peg count change
     pegCountSelect.addEventListener('change', () => {
         pegCount = parseInt(pegCountSelect.value);
         const pegD = document.getElementById('peg-D');
