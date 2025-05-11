@@ -165,14 +165,12 @@ def register_routes(app):
             if not isinstance(move_details, dict):
                 raise ValidationError("Move details must be an object")
             
-            if 'position' not in move_details or 'board_state' not in move_details:
-                raise ValidationError("Move details must include position and board_state")
-            
-            GameValidator.validate_move(move_details['position'], move_details['board_state'])
+            if 'row' not in move_details or 'col' not in move_details or 'player' not in move_details:
+                raise ValidationError("Move details must include row, col, and player")
             
             new_move = TicTacToeMove(
                 game_id=data['game_id'],
-                algorithm_used=data.get('algorithm_used', 'manual'),
+                algorithm_used=data.get('algorithm_used', 'minimax'),
                 time_taken=data.get('time_taken', 0),
                 move_details=move_details
             )
@@ -368,7 +366,7 @@ def register_routes(app):
             if not data:
                 raise ValidationError("No data provided")
             
-            required_fields = ['game_id', 'algorithm_used', 'time_taken']
+            required_fields = ['game_id', 'algorithm_used', 'time_taken', 'pegs_used']
             for field in required_fields:
                 if field not in data:
                     raise ValidationError(f"{field} is required")
@@ -378,9 +376,13 @@ def register_routes(app):
             if not isinstance(data['time_taken'], (int, float)) or data['time_taken'] < 0:
                 raise ValidationError("time_taken must be a non-negative number")
             
+            if not isinstance(data['pegs_used'], int) or data['pegs_used'] not in [3, 4]:
+                raise ValidationError("pegs_used must be either 3 or 4")
+            
             new_time = HanoiAlgorithmTime(
                 game_id=data['game_id'],
                 algorithm_used=data['algorithm_used'],
+                pegs_used=data['pegs_used'],
                 time_taken=data['time_taken']
             )
             db.session.add(new_time)
@@ -431,6 +433,20 @@ def register_routes(app):
             } for game in games])
         except Exception as e:
             return jsonify({'error': str(e)})
+
+    @app.route('/api/hanoi/algorithm-times/<int:game_id>', methods=['GET'])
+    def get_hanoi_algorithm_times(game_id):
+        times = HanoiAlgorithmTime.query.filter_by(game_id=game_id).all()
+        return jsonify([
+            {
+                'id': t.id,
+                'algorithm_used': t.algorithm_used,
+                'pegs_used': t.pegs_used,
+                'time_taken': t.time_taken,
+                'created_at': t.created_at.isoformat() if t.created_at else None
+            }
+            for t in times
+        ])
 
     # ========== QUEENS API ==========
     @app.route('/api/queens/games', methods=['GET', 'POST'])
@@ -561,12 +577,23 @@ def register_routes(app):
     def add_queens_algorithm_time():
         try:
             data = request.get_json()
-            required_fields = ['algorithm_type', 'solutions_found', 'time_taken']
+            required_fields = ['game_id', 'algorithm_type', 'solutions_found', 'time_taken']
             if not all(field in data for field in required_fields):
                 return jsonify({'error': 'Missing required fields'}), 400
-                
+            
+            # Validate game ID
+            GameValidator.validate_game_id(data['game_id'])
+            
+            # Validate time taken
+            if not isinstance(data['time_taken'], (int, float)) or data['time_taken'] < 0:
+                raise ValidationError("time_taken must be a non-negative number")
+            
+            # Validate solutions found
+            if not isinstance(data['solutions_found'], int) or data['solutions_found'] < 0:
+                raise ValidationError("solutions_found must be a non-negative integer")
+            
             new_time = QueensAlgorithmTime(
-                game_id=data.get('game_id'),
+                game_id=data['game_id'],
                 algorithm_type=data['algorithm_type'],
                 solutions_found=data['solutions_found'],
                 time_taken=data['time_taken']
@@ -576,6 +603,8 @@ def register_routes(app):
             
             return jsonify({'message': 'Algorithm time recorded'}), 201
             
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Error saving algorithm time: {str(e)}")
