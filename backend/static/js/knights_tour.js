@@ -393,18 +393,39 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentRow = startRow;
         let currentCol = startCol;
 
+        // Pre-compute all possible moves for each position
+        const moveCache = new Map();
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const validMoves = getPossibleMoves(row, col)
+                    .filter(m => m.row >= 0 && m.row < 8 && m.col >= 0 && m.col < 8);
+                moveCache.set(`${row},${col}`, validMoves);
+            }
+        }
+
         for (let move = 2; move <= 64; move++) {
-            const possibleMoves = getPossibleMoves(currentRow, currentCol)
+            const possibleMoves = moveCache.get(`${currentRow},${currentCol}`)
                 .filter(m => board[m.row][m.col] === 0)
                 .map(m => {
-                    m.onwardMoves = getPossibleMoves(m.row, m.col)
+                    // Count only unvisited squares that are reachable
+                    const onwardMoves = moveCache.get(`${m.row},${m.col}`)
                         .filter(m2 => board[m2.row][m2.col] === 0).length;
-                    return m;
+                    return { ...m, onwardMoves };
                 });
 
             if (possibleMoves.length === 0) break;
 
-            possibleMoves.sort((a, b) => a.onwardMoves - b.onwardMoves);
+            // Sort by number of onward moves and use a tiebreaker
+            possibleMoves.sort((a, b) => {
+                if (a.onwardMoves !== b.onwardMoves) {
+                    return a.onwardMoves - b.onwardMoves;
+                }
+                // Tiebreaker: prefer moves closer to the center
+                const aDist = Math.abs(a.row - 3.5) + Math.abs(a.col - 3.5);
+                const bDist = Math.abs(b.row - 3.5) + Math.abs(b.col - 3.5);
+                return aDist - bDist;
+            });
+
             const nextMove = possibleMoves[0];
             board[nextMove.row][nextMove.col] = move;
             moves.push(nextMove);
@@ -415,28 +436,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return moves;
     }
 
-    // Implement Backtracking algorithm
+    // Implement Backtracking algorithm with optimizations
     function solveWithBacktracking(startRow, startCol) {
         const board = Array(8).fill().map(() => Array(8).fill(0));
         board[startRow][startCol] = 1;
         const solution = [];
-        const moves = [
-            [2, 1], [2, -1], [-2, 1], [-2, -1],
-            [1, 2], [1, -2], [-1, 2], [-1, -2]
-        ];
+        
+        // Pre-compute all possible moves for each position
+        const moveCache = new Map();
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const validMoves = getPossibleMoves(row, col)
+                    .filter(m => m.row >= 0 && m.row < 8 && m.col >= 0 && m.col < 8);
+                moveCache.set(`${row},${col}`, validMoves);
+            }
+        }
+
+        // Sort moves to prioritize those with fewer onward moves
+        function getSortedMoves(row, col) {
+            const moves = moveCache.get(`${row},${col}`)
+                .filter(m => board[m.row][m.col] === 0)
+                .map(m => {
+                    const onwardMoves = moveCache.get(`${m.row},${m.col}`)
+                        .filter(m2 => board[m2.row][m2.col] === 0).length;
+                    return { ...m, onwardMoves };
+                });
+            
+            return moves.sort((a, b) => a.onwardMoves - b.onwardMoves);
+        }
 
         function backtrack(row, col, moveCount) {
             if (moveCount === 64) return true;
             
-            const possibleMoves = moves.map(([dr, dc]) => ({
-                row: row + dr,
-                col: col + dc
-            })).filter(m => 
-                m.row >= 0 && m.row < 8 && 
-                m.col >= 0 && m.col < 8 &&
-                board[m.row][m.col] === 0
-            );
-
+            const possibleMoves = getSortedMoves(row, col);
+            
             for (const move of possibleMoves) {
                 board[move.row][move.col] = moveCount + 1;
                 solution.push(move);
