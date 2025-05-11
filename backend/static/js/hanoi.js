@@ -213,7 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
         movesList.appendChild(moveItem);
         movesList.scrollTop = movesList.scrollHeight;
         
-        if (document.getElementById('disks-C').children.length === diskCount) {
+        // Check for game completion based on number of pegs
+        const finalPeg = pegCount === 3 ? 'C' : 'D';
+        if (document.getElementById(`disks-${finalPeg}`).children.length === diskCount) {
             endGame(true);
         } else {
             statusDisplay.textContent = 'Disk moved. Select another disk.';
@@ -258,57 +260,27 @@ document.addEventListener('DOMContentLoaded', () => {
         gameActive = false;
         
         const disks = Array.from({length: diskCount}, (_, i) => diskCount - i);
+        let solution;
         
-        // Recursive solution
-        let startTime = performance.now();
-        const recursiveSolution = solveHanoiRecursive(diskCount, 'A', 'C', 'B');
-        let endTime = performance.now();
-        recursiveTimeDisplay.textContent = `${(endTime - startTime).toFixed(2)}ms`;
-        saveAlgorithmTime('recursive', endTime - startTime);
+        // Choose algorithm based on peg count
+        if (pegCount === 3) {
+            // Recursive solution for 3 pegs
+            let startTime = performance.now();
+            solution = solveHanoiRecursive(diskCount, 'A', 'C', 'B');
+            let endTime = performance.now();
+            recursiveTimeDisplay.textContent = `${(endTime - startTime).toFixed(2)}ms`;
+            saveAlgorithmTime('recursive', endTime - startTime);
+        } else {
+            // Frame-Stewart algorithm for 4 pegs
+            let startTime = performance.now();
+            solution = solveHanoiFourPegs(diskCount, 'A', 'D', 'B', 'C');
+            let endTime = performance.now();
+            fourpegTimeDisplay.textContent = `${(endTime - startTime).toFixed(2)}ms`;
+            saveAlgorithmTime('fourpeg', endTime - startTime);
+        }
         
-        // Iterative solution
-        startTime = performance.now();
-        const iterativeSolution = solveHanoiIterative(diskCount, 'A', 'C', 'B');
-        endTime = performance.now();
-        iterativeTimeDisplay.textContent = `${(endTime - startTime).toFixed(2)}ms`;
-        saveAlgorithmTime('iterative', endTime - startTime);
-        
-        // 4-peg solution
-        startTime = performance.now();
-        const fourpegSolution = solveHanoiFourPegs(diskCount, 'A', 'C', 'B', 'D');
-        endTime = performance.now();
-        fourpegTimeDisplay.textContent = `${(endTime - startTime).toFixed(2)}ms`;
-        saveAlgorithmTime('fourpeg', endTime - startTime);
-        
-        animateSolution(recursiveSolution);
+        animateSolution(solution);
     });
-    
-    // Animate the solution
-    function animateSolution(solution) {
-        let i = 0;
-        const interval = setInterval(() => {
-            if (i >= solution.length) {
-                clearInterval(interval);
-                endGame(true);
-                return;
-            }
-            
-            const move = solution[i];
-            const disk = document.querySelector(`#disks-${move.from} .disk:last-child`);
-            
-            if (disk) {
-                selectDisk(disk, move.from);
-                setTimeout(() => {
-                    if (selectedDisk) {
-                        const targetPeg = document.getElementById(`peg-${move.to}`);
-                        handlePegClick({currentTarget: targetPeg});
-                    }
-                }, 500);
-            }
-            
-            i++;
-        }, 1000);
-    }
     
     // Hanoi algorithms
     function solveHanoiRecursive(n, source, target, auxiliary) {
@@ -323,47 +295,127 @@ document.addEventListener('DOMContentLoaded', () => {
         return moves;
     }
     
-    function solveHanoiIterative(n, source, target, auxiliary) {
-        const moves = [];
-        const stack = [];
-        stack.push({n: n, source: source, target: target, auxiliary: auxiliary, stage: 0});
-        
-        while (stack.length > 0) {
-            const current = stack[stack.length - 1];
-            
-            if (current.n === 1) {
-                moves.push({disk: current.n, from: current.source, to: current.target});
-                stack.pop();
-                continue;
-            }
-            
-            if (current.stage === 0) {
-                current.stage = 1;
-                stack.push({n: current.n - 1, source: current.source, target: current.auxiliary, auxiliary: current.target, stage: 0});
-            } else if (current.stage === 1) {
-                moves.push({disk: current.n, from: current.source, to: current.target});
-                current.stage = 2;
-                stack.push({n: current.n - 1, source: current.auxiliary, target: current.target, auxiliary: current.source, stage: 0});
-            } else {
-                stack.pop();
-            }
-        }
-        
-        return moves;
-    }
-    
     function solveHanoiFourPegs(n, source, target, auxiliary1, auxiliary2) {
         if (n === 0) return [];
         if (n === 1) return [{disk: n, from: source, to: target}];
         
+        // Calculate optimal k using Frame-Stewart algorithm
         const k = Math.floor(n - Math.sqrt(2 * n + 1) + 1);
         const moves = [];
         
+        // Move k smallest disks to auxiliary1 using all 4 pegs
         moves.push(...solveHanoiFourPegs(k, source, auxiliary1, target, auxiliary2));
+        
+        // Move remaining n-k disks to target using 3 pegs (without auxiliary1)
         moves.push(...solveHanoiRecursive(n - k, source, target, auxiliary2));
+        
+        // Move k smallest disks from auxiliary1 to target using all 4 pegs
         moves.push(...solveHanoiFourPegs(k, auxiliary1, target, source, auxiliary2));
         
         return moves;
+    }
+    
+    // Animate the solution
+    function animateSolution(solution) {
+        let i = 0;
+        const movesList = document.getElementById('moves-list');
+        movesList.innerHTML = ''; // Clear previous moves
+        
+        // Add explanation header
+        const explanationHeader = document.createElement('div');
+        explanationHeader.className = 'move-item explanation';
+        explanationHeader.innerHTML = `<strong>Solution Steps (${pegCount} Pegs):</strong>`;
+        movesList.appendChild(explanationHeader);
+        
+        function performMove() {
+            if (i >= solution.length) {
+                endGame(true);
+                return;
+            }
+            
+            const move = solution[i];
+            const disk = document.querySelector(`#disks-${move.from} .disk:last-child`);
+            
+            // Add move explanation
+            const moveItem = document.createElement('div');
+            moveItem.className = 'move-item';
+            moveItem.innerHTML = `<strong>Step ${i + 1}:</strong> Move disk ${move.disk} from peg ${move.from} to peg ${move.to}`;
+            movesList.appendChild(moveItem);
+            movesList.scrollTop = movesList.scrollHeight;
+            
+            if (disk) {
+                // Add moving class to disk
+                disk.classList.add('moving');
+                
+                // Add source and target classes to pegs
+                const fromPeg = document.getElementById(`peg-${move.from}`);
+                const toPeg = document.getElementById(`peg-${move.to}`);
+                fromPeg.classList.add('source');
+                toPeg.classList.add('target');
+                
+                // Create movement path
+                const path = document.createElement('div');
+                path.className = 'movement-path';
+                const diskRect = disk.getBoundingClientRect();
+                path.style.width = `${diskRect.width * 1.5}px`;
+                path.style.height = `${diskRect.height * 1.5}px`;
+                path.style.left = `${diskRect.left - diskRect.width/4}px`;
+                path.style.top = `${diskRect.top - diskRect.height/4}px`;
+                document.body.appendChild(path);
+                
+                // Create movement arrow
+                const arrow = document.createElement('div');
+                arrow.className = 'movement-arrow';
+                arrow.style.left = `${diskRect.left + diskRect.width/2 - 10}px`;
+                arrow.style.top = `${diskRect.top + diskRect.height/2 - 10}px`;
+                document.body.appendChild(arrow);
+                
+                // Move the disk
+                const toPegRect = toPeg.getBoundingClientRect();
+                const targetX = toPegRect.left + (toPegRect.width / 2) - (diskRect.width / 2);
+                const targetY = toPegRect.top + toPegRect.height - diskRect.height - 10;
+                
+                disk.style.position = 'fixed';
+                disk.style.left = `${diskRect.left}px`;
+                disk.style.top = `${diskRect.top}px`;
+                disk.style.zIndex = '1000';
+                
+                requestAnimationFrame(() => {
+                    disk.style.transform = `translate(${targetX - diskRect.left}px, ${targetY - diskRect.top}px)`;
+                });
+                
+                // After animation completes, update the DOM
+                setTimeout(() => {
+                    // Clean up visual elements
+                    disk.classList.remove('moving');
+                    fromPeg.classList.remove('source');
+                    toPeg.classList.remove('target');
+                    path.remove();
+                    arrow.remove();
+                    
+                    // Reset disk styles
+                    disk.style.position = '';
+                    disk.style.left = '';
+                    disk.style.top = '';
+                    disk.style.transform = '';
+                    
+                    // Update the disk's position in the DOM
+                    document.getElementById(`disks-${move.from}`).removeChild(disk);
+                    document.getElementById(`disks-${move.to}`).appendChild(disk);
+                    
+                    // Update disk click handler
+                    disk.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectDisk(disk, move.to);
+                    });
+                    
+                    i++;
+                    setTimeout(performMove, 30);
+                }, 150);
+            }
+        }
+        
+        performMove();
     }
     
     // Save game result
@@ -472,7 +524,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const isComplete = document.getElementById('disks-C').children.length === diskCount;
+        const finalPeg = pegCount === 3 ? 'C' : 'D';
+        const isComplete = document.getElementById(`disks-${finalPeg}`).children.length === diskCount;
         saveGameResult(isComplete);
         
         if (isComplete) {
